@@ -1,0 +1,35 @@
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlmodel import Session
+
+from app.analysis.compliance import check_compliance
+from app.analysis.structures import compare_structures
+from app.db import get_session
+
+router = APIRouter(prefix="/analysis", tags=["analysis (information only, not advice)"])
+
+
+class AnalysisIn(BaseModel):
+    customer_id: int = 1
+    period: str | None = None  # 'YYYY-Qn'; default = quarter of the latest order
+
+
+def run(fn, body: AnalysisIn, s: Session):
+    try:
+        result = fn(s, body.customer_id, body.period)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    except LookupError as e:
+        raise HTTPException(503, str(e))
+    s.commit()  # persists the audit row
+    return result
+
+
+@router.post("/compliance")
+def compliance(body: AnalysisIn, s: Session = Depends(get_session)):
+    return run(check_compliance, body, s)
+
+
+@router.post("/structures")
+def structures(body: AnalysisIn, s: Session = Depends(get_session)):
+    return run(compare_structures, body, s)

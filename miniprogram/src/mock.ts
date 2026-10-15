@@ -10,14 +10,6 @@ export const mockPlan = {
   ],
 }
 
-export const mockComparison = {
-  columns: ['A 个人', 'B 个体户', 'C 合作社', 'D 公司'],
-  rows: [
-    { label: '增值税', cells: ['免征 (自产)', '免征 (自产)', '免征 (自产)', '部分应税'] },
-    { label: '所得税', cells: ['按规定', '减半', '按规定', '约 5%'] },
-  ],
-}
-
 export const mockSupport = {
   name: '农业经营主体流动资金贴息 (模拟)',
   wording: '你可能符合条件 (may qualify)',

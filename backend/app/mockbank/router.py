@@ -1,7 +1,4 @@
-import csv
-import io
 import secrets
-from datetime import datetime
 from difflib import SequenceMatcher
 from typing import Literal
 
@@ -10,20 +7,14 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
 from app import clock
+from app.analysis import reconcile as recon
 from app.audit import chain
 from app.db import get_session
 from app.mockbank import schemas as sc
 from app.mockbank import service as svc
-from app.models import BankApproval, BankCustomer, BankPayee, BankReserve, BankTxn, PlatformOrder
+from app.models import BankApproval, BankCustomer, BankPayee, BankReserve, BankTxn
 
 router = APIRouter(prefix="/bank", tags=["mock bank (simulated)"])
-
-# column names of each platform's export format
-PLATFORM_COLS = {
-    "marketplace": ("order_id", "paid_at", "product", "qty", "amount", "buyer_note"),
-    "livestream": ("订单编号", "下单时间", "商品", "数量", "实付金额", "买家留言"),
-}
-
 
 def _pending(ap: BankApproval) -> JSONResponse:
     return JSONResponse(status_code=202, content=svc.approval_view(ap))
@@ -136,25 +127,32 @@ def release_reserve(reserve_id: int, customer_id: int = 1, s: Session = Depends(
 @router.post("/orders/import")
 def import_orders(body: sc.OrdersImportIn, platform: Literal["marketplace", "livestream"], s: Session = Depends(get_session)):
     """Idempotent by order id. Not gated: platform data, not money movement (also allowed while locked)."""
-    cols = PLATFORM_COLS[platform]
-    reader = csv.DictReader(io.StringIO(body.csv.lstrip("﻿")))
-    new = skipped = 0
-    for n, row in enumerate(reader, start=2):
-        try:
-            oid, ts, product, qty, amount, note = (row[c] for c in cols)
-            order = PlatformOrder(id=oid.strip(), platform=platform, ts=datetime.fromisoformat(ts.strip()),
-                                  product=product.strip(), qty=int(qty), amount=float(amount),
-                                  buyer_note_untrusted=note or "", imported_at=clock.now())
-        except (KeyError, ValueError, AttributeError) as e:
-            raise HTTPException(422, f"bad {platform} CSV at line {n}: {e!r}")
-        if s.get(PlatformOrder, order.id):
-            skipped += 1
-        else:
-            s.add(order)
-            new += 1
-    chain.append(s, "mockbank", "orders_imported", {"platform": platform, "new": new, "skipped": skipped})
+    try:
+        result = recon.import_orders(s, platform, body.csv)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    chain.append(s, "mockbank", "orders_imported", result)
     s.commit()
-    return {"platform": platform, "new": new, "skipped": skipped}
+    return result
+
+
+@router.get("/income/statement")
+def income_statement(year: int, customer_id: int = 1, s: Session = Depends(get_session)):
+    svc.get_customer(s, customer_id)
+    result = recon.income_statement(s, customer_id, year)
+    s.commit()
+    return result
+
+
+@router.get("/income/reconcile")
+def income_reconcile(period: str, customer_id: int = 1, s: Session = Depends(get_session)):
+    svc.get_customer(s, customer_id)
+    try:
+        result = recon.reconcile(s, customer_id, period)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    s.commit()
+    return result
 
 
 # ---------- auth / approvals ----------

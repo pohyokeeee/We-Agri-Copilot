@@ -55,3 +55,19 @@ def client(world):
     app.dependency_overrides[get_session] = _session
     yield TestClient(app)  # no `with`: skips lifespan, so the real data/app.db is never touched
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def seeded(engine):
+    """Full Uncle Wang seed data in the in-memory DB, with a client wired to it."""
+    from seed.seed import seed
+
+    seed(engine)
+
+    def _session():
+        with Session(engine) as s:
+            yield s
+
+    app.dependency_overrides[get_session] = _session
+    yield TestClient(app), engine
+    app.dependency_overrides.clear()

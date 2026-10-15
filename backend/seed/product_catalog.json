@@ -1,0 +1,6 @@
+[
+  {"match": "自家", "income_class": "own_produce", "note": "Wang Family Apiary's own honey"},
+  {"match": "邻家", "income_class": "resale", "note": "neighbours' honey bought in and resold"},
+  {"match": "白菜", "income_class": "own_produce", "note": "own cabbage"},
+  {"match": "加工", "income_class": "processed", "note": "own primary-processed goods"}
+]

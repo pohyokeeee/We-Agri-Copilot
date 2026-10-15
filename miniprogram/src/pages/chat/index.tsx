@@ -2,10 +2,12 @@ import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import ComparisonCard from '../../components/ComparisonCard'
+import FlagsCard from '../../components/FlagsCard'
 import PlanCard from '../../components/PlanCard'
 import ReadBackCard from '../../components/ReadBackCard'
 import SupportCard from '../../components/SupportCard'
-import { mockComparison, mockPlan, mockReadBack, mockSupport } from '../../mock'
+import { Compliance, Structures, api } from '../../services/api'
+import { mockPlan, mockReadBack, mockSupport } from '../../mock'
 
 const recorder = Taro.getRecorderManager()
 const audio = Taro.createInnerAudioContext()
@@ -32,6 +34,26 @@ export default function Chat() {
   const [recording, setRecording] = useState(false)
   const [heard, setHeard] = useState('')
   const [micHelp, setMicHelp] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+  const [compliance, setCompliance] = useState<Compliance | null>(null)
+  const [structures, setStructures] = useState<Structures | null>(null)
+
+  // Voice comes later: for now a button asks the same question. Compliance first, then the comparison.
+  const askCompliance = async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const c = await api.compliance()
+      const s = await api.structures(c.period)
+      setCompliance(c)
+      setStructures(s)
+    } catch {
+      setError(true)
+    } finally {
+      setLoading(false)
+    }
+  }
   const answer = useRef<(ok: boolean) => void>()
   // large-font explanation (native modals ignore our font size)
   const explain = () => new Promise<boolean>((res) => { answer.current = res; setMicHelp(true) })
@@ -81,7 +103,17 @@ export default function Chat() {
 
       {/* static mock cards until the agent exists */}
       <PlanCard title={mockPlan.title} steps={mockPlan.steps} />
-      <ComparisonCard {...mockComparison} />
+      <View className='btn btn-primary' onClick={loading ? undefined : askCompliance}>
+        <Text>{loading ? '正在查，请稍等…' : '我这样卖蜂蜜合规吗？'}</Text>
+      </View>
+      {error && (
+        <View className='card'>
+          <Text className='card-title'>现在连不上服务器</Text>
+          <Text>请确认后台已经打开，然后再点一次。</Text>
+        </View>
+      )}
+      {compliance && <FlagsCard data={compliance} />}
+      {structures && <ComparisonCard data={structures} />}
       <SupportCard {...mockSupport} />
       <ReadBackCard {...mockReadBack} />
 

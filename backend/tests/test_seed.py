@@ -12,7 +12,7 @@ def test_seed_is_idempotent_and_consistent():
     assert a == b
     assert 0.36 < a["resale_share"] < 0.41  # ~38% of sales are resold neighbours' honey
     with Session(eng) as s:
-        assert len(s.exec(select(RuleTax)).all()) == 11 and len(s.exec(select(RulePolicy)).all()) == 5
+        assert len(s.exec(select(RuleTax)).all()) == 16 and len(s.exec(select(RulePolicy)).all()) == 5
         assert verify_chain(s) == (True, None)
         acct = s.get(BankAccount, 1)
         txns = s.exec(select(BankTxn)).all()
