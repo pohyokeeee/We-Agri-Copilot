@@ -37,7 +37,19 @@ bound to that exact request (PIN, plus co-signer when the customer has protectio
 
 ## Run the backend
 
-Python 3.11+ (developed on 3.13).
+**Use Python 3.12; 3.13+ is not supported yet (pydantic-core / LangGraph wheels).** Supported range:
+`>=3.11,<3.13` (no `pyproject.toml`, so this is documented here; `backend/.python-version` pins 3.12).
+
+Windows (PowerShell):
+
+```powershell
+cd backend
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Or without activating, on any OS:
 
 ```bash
 cd backend
