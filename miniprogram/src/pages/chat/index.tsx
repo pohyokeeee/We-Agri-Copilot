@@ -1,6 +1,6 @@
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ComparisonCard from '../../components/ComparisonCard'
 import PlanCard from '../../components/PlanCard'
 import ReadBackCard from '../../components/ReadBackCard'
@@ -10,9 +10,31 @@ import { mockComparison, mockPlan, mockReadBack, mockSupport } from '../../mock'
 const recorder = Taro.getRecorderManager()
 const audio = Taro.createInnerAudioContext()
 
+// scope.record cannot go in app.json; ask at first use. Once denied, authorize() no longer prompts,
+// so explain and send the user to the settings page.
+async function ensureMic(explain: () => Promise<boolean>): Promise<boolean> {
+  const { authSetting } = await Taro.getSetting()
+  if (authSetting['scope.record']) return true
+  if (authSetting['scope.record'] === undefined) {
+    try {
+      await Taro.authorize({ scope: 'scope.record' })
+      return true
+    } catch {
+      // denied just now: fall through to the explanation
+    }
+  }
+  if (!(await explain())) return false
+  const { authSetting: after } = await Taro.openSetting()
+  return !!after['scope.record']
+}
+
 export default function Chat() {
   const [recording, setRecording] = useState(false)
   const [heard, setHeard] = useState('')
+  const [micHelp, setMicHelp] = useState(false)
+  const answer = useRef<(ok: boolean) => void>()
+  // large-font explanation (native modals ignore our font size)
+  const explain = () => new Promise<boolean>((res) => { answer.current = res; setMicHelp(true) })
 
   useEffect(() => {
     recorder.onStop((res) => {
@@ -27,7 +49,11 @@ export default function Chat() {
   }, [])
 
   // Push-to-talk: hold to speak, release to send.
-  const start = () => { setRecording(true); recorder.start({ format: 'mp3', duration: 60000 }) }
+  const start = async () => {
+    if (!(await ensureMic(explain))) return
+    setRecording(true)
+    recorder.start({ format: 'mp3', duration: 60000 })
+  }
   const stop = () => recorder.stop()
 
   // TODO: backend returns a TTS url (already prefixed with the spoken AI label "元农民助手：")
@@ -41,6 +67,16 @@ export default function Chat() {
         <Text className='card-title'>王大爷，您好。想办什么事？</Text>
         <View className='btn' onClick={() => playReply()}><Text>🔊 再听一遍</Text></View>
       </View>
+      {micHelp && (
+        <View className='card'>
+          <Text className='card-title'>需要使用麦克风</Text>
+          <Text>您需要对着手机说话，我才能听懂。请在设置里打开“麦克风”。</Text>
+          <View className='row'>
+            <View className='btn btn-primary' onClick={() => { setMicHelp(false); answer.current?.(true) }}><Text>去设置</Text></View>
+            <View className='btn' onClick={() => { setMicHelp(false); answer.current?.(false) }}><Text>不用了</Text></View>
+          </View>
+        </View>
+      )}
       {heard && <Text>{heard}</Text>}
 
       {/* static mock cards until the agent exists */}

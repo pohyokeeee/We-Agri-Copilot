@@ -5,5 +5,4 @@ export default defineAppConfig({
     navigationBarBackgroundColor: '#ffffff',
     navigationBarTextStyle: 'black',
   },
-  permission: { 'scope.record': { desc: '用于语音说话' } },
 })
