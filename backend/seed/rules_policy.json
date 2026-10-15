@@ -1,0 +1,52 @@
+[
+  {
+    "policy_id": "demo_county_cultivated_land_subsidy",
+    "name": "耕地地力保护补贴 (模拟)",
+    "region": "示范县 (模拟)",
+    "kind": "subsidy",
+    "eligibility": {"entity": ["individual", "个体工商户", "cooperative"], "min_cultivated_mu": 1, "land_use": "cultivated"},
+    "benefit": "每亩 100 元 (模拟)",
+    "documents": ["身份证", "土地承包合同 (模拟)", "银行卡"],
+    "deadline": "2026-09-30", "citation_url": "TODO", "last_checked": "2026-06-01", "simulated": true
+  },
+  {
+    "policy_id": "demo_county_working_capital_interest_subsidy",
+    "name": "农业经营主体流动资金贴息 (模拟)",
+    "region": "示范县 (模拟)",
+    "kind": "interest_subsidy",
+    "eligibility": {"entity": ["individual", "个体工商户", "cooperative", "company"], "sector": "agriculture", "loan_purpose": "working_capital"},
+    "benefit": "贷款利息补贴 50%，单户上限 5,000 元 (模拟)",
+    "documents": ["营业执照或经营证明", "贷款合同", "利息支付凭证"],
+    "deadline": "2026-12-31", "citation_url": "TODO", "last_checked": "2026-06-01", "simulated": true
+  },
+  {
+    "policy_id": "demo_county_coop_only_scheme",
+    "name": "农民专业合作社发展资金 (模拟)",
+    "region": "示范县 (模拟)",
+    "kind": "subsidy",
+    "eligibility": {"entity": ["cooperative"], "min_members": 5},
+    "benefit": "一次性补助最高 20,000 元 (模拟)",
+    "documents": ["合作社营业执照", "成员名册", "年度财务报表"],
+    "deadline": "2026-10-31", "citation_url": "TODO", "last_checked": "2026-06-01", "simulated": true
+  },
+  {
+    "policy_id": "demo_bank_agri_loan_a",
+    "name": "模拟银行·惠农流动贷 A",
+    "region": "示范县 (模拟)",
+    "kind": "bank_product",
+    "eligibility": {"entity": ["individual", "个体工商户", "cooperative"], "min_operating_months": 12, "max_amount": 200000},
+    "benefit": "年化 4.35%，期限 12 个月，无手续费 (模拟)",
+    "documents": ["身份证", "近12个月银行流水", "经营证明"],
+    "deadline": null, "citation_url": "TODO", "last_checked": "2026-06-01", "simulated": true
+  },
+  {
+    "policy_id": "demo_bank_agri_loan_b",
+    "name": "模拟银行·蜂农季节贷 B",
+    "region": "示范县 (模拟)",
+    "kind": "bank_product",
+    "eligibility": {"entity": ["individual", "个体工商户"], "sector": "apiculture", "min_operating_months": 24, "max_amount": 100000},
+    "benefit": "年化 5.10%，期限 6 个月，手续费 0.5% (模拟)",
+    "documents": ["身份证", "近12个月银行流水", "养殖/养蜂证明"],
+    "deadline": null, "citation_url": "TODO", "last_checked": "2026-06-01", "simulated": true
+  }
+]

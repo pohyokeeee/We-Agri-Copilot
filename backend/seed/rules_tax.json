@@ -1,0 +1,105 @@
+[
+  {
+    "rule_id": "vat_law_art24_own_produce",
+    "scope": "VAT",
+    "applies_to": {"seller": "farmer", "goods": "primary_agricultural_produce", "origin": "own_produced"},
+    "rate_or_threshold": {"vat": "exempt"},
+    "effective_from": "2026-01-01", "effective_to": null,
+    "citation_url": "TODO", "status": "verified",
+    "notes": "VAT Law (eff. 2026-01-01) Art. 24: farmers' own primary agricultural produce is VAT-exempt. Resale of bought-in produce is not."
+  },
+  {
+    "rule_id": "vat_small_scale_taxpayer",
+    "scope": "VAT",
+    "applies_to": {"taxpayer": "small_scale"},
+    "rate_or_threshold": {"annual_taxable_sales_max": 5000000},
+    "effective_from": "2026-01-01", "effective_to": null,
+    "citation_url": "TODO", "status": "verified",
+    "notes": "Small-scale taxpayer = annual taxable sales <= 5,000,000 CNY."
+  },
+  {
+    "rule_id": "vat_ann2026_no10_threshold",
+    "scope": "VAT",
+    "applies_to": {"taxpayer": "small_scale", "goods": "non_exempt_sales"},
+    "rate_or_threshold": {
+      "thresholds": {"month": 100000, "quarter": 300000, "occasion": 1000},
+      "levy_rate": 0.01,
+      "rule": "exempt only while sales are BELOW the threshold; reaching it taxes the FULL amount"
+    },
+    "effective_from": "2026-01-01", "effective_to": "2027-12-31",
+    "citation_url": "TODO", "status": "verified",
+    "notes": "MOF/SAT Announcement 2026 No.10. Per occasion = per occasion/day. 3% levy reduced to 1%."
+  },
+  {
+    "rule_id": "iit_ann2023_no12_geti_half",
+    "scope": "IIT",
+    "applies_to": {"entity": "个体工商户"},
+    "rate_or_threshold": {"annual_taxable_income_max": 2000000, "reduction": 0.5},
+    "effective_from": "2023-01-01", "effective_to": "2027-12-31",
+    "citation_url": "TODO", "status": "verified",
+    "notes": "MOF/SAT Announcement 2023 No.12: IIT halved on annual taxable income up to 2,000,000 CNY."
+  },
+  {
+    "rule_id": "surtax_ann2023_no12_six_taxes_two_fees_half",
+    "scope": "surtax",
+    "applies_to": {"entity": ["small_scale_taxpayer", "small_low_profit_enterprise", "个体工商户"]},
+    "rate_or_threshold": {"reduction": 0.5},
+    "effective_from": "2023-01-01", "effective_to": "2027-12-31",
+    "citation_url": "TODO", "status": "verified",
+    "notes": "MOF/SAT Announcement 2023 No.12: 'six taxes two fees' halved."
+  },
+  {
+    "rule_id": "eit_small_low_profit",
+    "scope": "EIT",
+    "applies_to": {"entity": "small_low_profit_enterprise"},
+    "rate_or_threshold": {"taxable_income_fraction": 0.25, "rate": 0.20, "effective_rate": 0.05},
+    "effective_from": "2023-01-01", "effective_to": "2027-12-31",
+    "citation_url": "TODO", "status": "verified",
+    "notes": "25% of taxable income taxed at 20% (about 5% effective)."
+  },
+  {
+    "rule_id": "eit_agri_primary_exempt",
+    "scope": "EIT",
+    "applies_to": {"activity": ["growing", "livestock", "primary_processing"]},
+    "rate_or_threshold": {"eit": "exempt"},
+    "effective_from": null, "effective_to": null,
+    "citation_url": "TODO", "status": "verified",
+    "notes": "EIT exempts income from growing, livestock and primary processing."
+  },
+  {
+    "rule_id": "eit_trading_not_exempt",
+    "scope": "EIT",
+    "applies_to": {"activity": "pure_trading_of_bought_in_produce"},
+    "rate_or_threshold": {"eit": "not_exempt"},
+    "effective_from": null, "effective_to": null,
+    "citation_url": "TODO", "status": "verified",
+    "notes": "Pure trading of bought-in produce is not covered by the agricultural exemption."
+  },
+  {
+    "rule_id": "coop_member_own_produce",
+    "scope": "VAT",
+    "applies_to": {"entity": "cooperative", "goods": "members_own_produce"},
+    "rate_or_threshold": {"treated_as": "self_produced"},
+    "effective_from": null, "effective_to": null,
+    "citation_url": "TODO", "status": "recall",
+    "notes": "Caishui [2008] No.81: cooperative members' own produce treated as self-produced. From memory - verify against the primary source before relying on it."
+  },
+  {
+    "rule_id": "platform_income_reporting",
+    "scope": "reporting",
+    "applies_to": {"party": "internet_platform"},
+    "rate_or_threshold": {"frequency": "quarterly", "small_income_threshold": null},
+    "effective_from": "2025-06-23", "effective_to": null,
+    "citation_url": "TODO", "status": "verified",
+    "notes": "Platforms report sellers' income to the tax authority quarterly from 2025-06-23; no small-income threshold."
+  },
+  {
+    "rule_id": "tax_admin_late_fee",
+    "scope": "admin",
+    "applies_to": {"event": "late_tax_payment"},
+    "rate_or_threshold": {"late_fee_per_day": 0.0005},
+    "effective_from": null, "effective_to": null,
+    "citation_url": "TODO", "status": "verified",
+    "notes": "Tax Collection Administration Law: late fee 0.05% per day."
+  }
+]

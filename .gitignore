@@ -1,0 +1,20 @@
+# secrets
+.env
+*.env.local
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# local data (rebuilt by `make seed`)
+backend/data/*
+!backend/data/.gitkeep
+
+# node / taro
+node_modules/
+miniprogram/dist/
+miniprogram/.swc/
+
+.DS_Store
