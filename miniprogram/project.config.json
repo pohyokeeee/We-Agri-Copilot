@@ -2,14 +2,38 @@
   "miniprogramRoot": "dist/",
   "projectname": "we-agri-copilot",
   "description": "元农民 - voice-first back office for small agricultural businesses (simulated bank, synthetic data)",
-  "appid": "touristappid",
+  "appid": "wxc04156023e6871cb",
   "compileType": "miniprogram",
   "setting": {
     "urlCheck": false,
     "es6": false,
     "enhance": false,
     "postcss": false,
-    "minified": false
+    "minified": false,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
   },
-  "condition": {}
+  "condition": {},
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
 }

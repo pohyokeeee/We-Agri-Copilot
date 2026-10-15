@@ -61,6 +61,7 @@ Sample order exports for `POST /bank/orders/import` are in `backend/seed/orders/
 
 ```bash
 cd miniprogram
+nvm use 20                # Node 20 LTS recommended (engines: >=18 <21; Node 24 is untested with Taro 4.0.9)
 cp .env.example .env     # TARO_APP_API_BASE=http://127.0.0.1:8000
 npm install
 npm run dev:weapp
