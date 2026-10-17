@@ -17,7 +17,7 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
-from app import clock
+from app import clock, trace
 from app.audit import chain
 from app.mockbank.numerals import amount_digits, amount_zh
 from app.models import (
@@ -191,7 +191,8 @@ def expire_stale(s: Session) -> None:
                 ap.status, ap.cosign = "expired", "expired"
                 s.add(ap)
             s.add(cr)
-            audit_step(s, "cosign_expired", cr.customer_id, ap=ap, method="cosign", result="expired", cosign_request_id=cr.id)
+            with trace.using(ap.trace_id):
+                audit_step(s, "cosign_expired", cr.customer_id, ap=ap, method="cosign", result="expired", cosign_request_id=cr.id)
 
 
 def gate(
@@ -207,6 +208,8 @@ def gate(
     h = action_hash(cust.id, action, payload)
     if token:
         ap = s.exec(select(BankApproval).where(BankApproval.token == token)).first()
+        if ap:
+            trace.adopt(ap.trace_id)  # the execution (and any refusal) belongs to the action that was approved
         why = ("unknown token" if not ap else "token already used" if ap.status == "used"
                else "approval is not granted" if ap.status != "approved" or ap.customer_id != cust.id
                else "request differs from what was approved" if ap.action_hash != h or ap.action != action
@@ -224,7 +227,7 @@ def gate(
     ap = BankApproval(
         customer_id=cust.id, action=action, payload=payload, action_hash=h, tier_base=tier["base_tier"],
         tier=tier["final_tier"], reasons=tier["reasons"], requires_cosigner=tier["requires_cosigner"] or unlock,
-        confirmed=unlock, pin_ok=unlock, created_at=now,
+        confirmed=unlock, pin_ok=unlock, created_at=now, trace_id=trace.current() or "",
     )
     s.add(ap)
     s.flush()

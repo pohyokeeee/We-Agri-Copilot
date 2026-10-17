@@ -1,6 +1,8 @@
 """Reply guards: grounding (numbers/names must come from tools) and wording (information, never advice)."""
 import re
 
+from app import trace
+
 BANNED = ("你应该", "您应该", "建议你", "建议您", "免税")  # advice / exemption claims ("建议你注册" is covered)
 FILING = ("申报", "报税", "汇算", "代办", "代为", "提交", "filing")  # anything about filing
 # "免征" etc. is fine as a rule statement, but not as a claim about the user ("您免征增值税")
@@ -26,3 +28,4 @@ def assert_wording(texts: list[str]) -> None:
     for t in texts:
         if not (r := check_wording(t))["ok"]:
             raise ValueError(f"wording check failed {r['violations']}: {t[:40]}")
+    trace.note_wording(len(texts))  # recorded in the audit rows of this request

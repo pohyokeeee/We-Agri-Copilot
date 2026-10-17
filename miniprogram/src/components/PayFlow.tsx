@@ -1,6 +1,6 @@
 import { Text, View } from '@tarojs/components'
 import { useEffect, useRef, useState } from 'react'
-import { ApiError, Approval, Payee, TransferBody, TransferResult, api } from '../services/api'
+import { ApiError, Approval, Payee, TransferBody, TransferResult, api, beginAction } from '../services/api'
 import PinPad from './PinPad'
 import ReadBackCard from './ReadBackCard'
 import ResultCard from './ResultCard'
@@ -62,6 +62,7 @@ export default function PayFlow() {
 
   // 1. resolve the name. None: say so. Several: ask which one, never pick silently.
   const start = () => guarded(async () => {
+    beginAction()
     spent.current = false
     const who = await api.payees(DEMO.spokenAs)
     if (!who.length) return setStep(stopped(`没找到叫“${DEMO.spokenAs}”的人`, ['请再说一次名字。']))

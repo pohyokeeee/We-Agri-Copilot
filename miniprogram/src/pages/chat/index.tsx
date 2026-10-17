@@ -10,7 +10,7 @@ import ReadBackCard from '../../components/ReadBackCard'
 import Screen from '../../components/Screen'
 import SupportList from '../../components/SupportList'
 import { Dismissable, ErrorCard, Skeleton, Tap, useDelayed } from '../../components/ui'
-import { Compliance, Forecast, PolicyMatch, Structures, api } from '../../services/api'
+import { Compliance, Forecast, PolicyMatch, Structures, api, beginAction } from '../../services/api'
 import { mockPlan, mockReadBack } from '../../mock'
 import { getSettings, setReducedMotion } from '../../utils/settings'
 
@@ -55,6 +55,7 @@ export default function Chat() {
   // Voice comes later: for now buttons ask the questions.
   const ask = async (kind: Ask, run: () => Promise<void>) => {
     if (busy) return
+    beginAction()
     setBusy(kind)
     setFailed('')
     try {

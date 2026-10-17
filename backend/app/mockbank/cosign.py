@@ -3,7 +3,7 @@ Decline or timeout (5 minutes) executes nothing and changes no state."""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from app import clock
+from app import clock, trace
 from app.db import get_session
 from app.mockbank import schemas as sc
 from app.mockbank import service as svc
@@ -29,7 +29,9 @@ def _pending_request(s: Session, request_id: int, cosigner_id: int) -> tuple[Cos
     if c.status != "pending":
         s.commit()  # keep an expiry we just recorded
         raise HTTPException(409, f"request is {c.status}")
-    return c, s.get(BankApproval, c.approval_id)
+    ap = s.get(BankApproval, c.approval_id)
+    trace.adopt(ap.trace_id)  # the co-signer's phone is a different client: the trace follows the approval
+    return c, ap
 
 
 @router.get("/pending")

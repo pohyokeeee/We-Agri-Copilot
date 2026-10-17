@@ -10,8 +10,17 @@ export class ApiError extends Error {
   }
 }
 
+// One user action = one trace. beginAction() starts a new one; every call after it carries its id, so the judge console can
+// show the whole action. (The server also joins co-sign and execution steps to the trace their approval started in.)
+let activeTrace = ''
+export function beginAction(): void {
+  activeTrace = `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+}
+
 async function request<T>(method: 'GET' | 'POST', path: string, data?: object): Promise<T> {
-  const res = await Taro.request({ url: API_BASE + path, method, data, header: { 'content-type': 'application/json' } })
+  const header: Record<string, string> = { 'content-type': 'application/json' }
+  if (activeTrace) header['X-Trace-Id'] = activeTrace
+  const res = await Taro.request({ url: API_BASE + path, method, data, header })
   if (res.statusCode >= 400) throw new ApiError(res.statusCode, res.data)
   return res.data as T
 }
@@ -138,7 +147,44 @@ export interface Forecast {
   disclaimer: string
 }
 
+export interface TraceSummary {
+  trace_id: string
+  summary_zh: string
+  status: string
+  steps: number
+  started_at: string
+  last_at: string
+  endpoint: string | null
+}
+export interface TraceStep {
+  seq: number
+  row_id: number
+  ts: string
+  actor: string
+  event: string
+  event_zh: string
+  tool: string
+  endpoint: string | null
+  tier_base: TierName | null
+  tier_final: TierName | null
+  reasons_zh: string[]
+  approval: { method: string | null; result: string | null } | null
+  wording_check: string | null
+  balance_before: number | null
+  balance_after: number | null
+  utterance: string | null
+  dag: unknown
+  detail: Record<string, unknown>
+  prev_hash: string
+  hash: string
+}
+export interface TraceDetail { trace_id: string; summary_zh: string; status: string; started_at: string; steps: TraceStep[] }
+export interface AuditVerify { ok: boolean; rows_checked: number; first_broken_id: number | null }
+
 export const api = {
+  traceRecent: (limit = 30) => request<TraceSummary[]>('GET', `/trace/recent?limit=${limit}`),
+  trace: (id: string) => request<TraceDetail>('GET', `/trace/${encodeURIComponent(id)}`),
+  auditVerify: () => request<AuditVerify>('GET', '/audit/verify'),
   balance: () => request<{ balance: number; reserved: number; available: number }>('GET', '/bank/balance'),
   // S1: supplier payment, one call per step of the approval flow
   payees: (q: string) => request<Payee[]>('GET', `/bank/payees?q=${encodeURIComponent(q)}`),

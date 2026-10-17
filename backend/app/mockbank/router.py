@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
-from app import clock
+from app import clock, trace
 from app.analysis import reconcile as recon
 from app.audit import chain
 from app.db import get_session
@@ -191,6 +191,7 @@ def _approval(s: Session, approval_id: int) -> BankApproval:
     ap = s.get(BankApproval, approval_id)
     if not ap:
         raise HTTPException(404, "approval not found")
+    trace.adopt(ap.trace_id)  # every later step of an approval joins the trace it started in
     return ap
 
 

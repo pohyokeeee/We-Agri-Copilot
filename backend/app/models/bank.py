@@ -122,6 +122,7 @@ class BankApproval(SQLModel, table=True):
     status: str = "pending"  # pending | approved | declined | expired | used
     token: str | None = Field(default=None, index=True)
     token_at: NaiveDatetime | None = None  # when the token was granted (it expires 5 minutes later)
+    trace_id: str = ""  # the user action this approval belongs to; later steps (co-sign, execute) join that trace
     created_at: NaiveDatetime
 
 

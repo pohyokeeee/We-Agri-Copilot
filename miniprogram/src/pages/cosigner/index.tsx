@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import PinPad from '../../components/PinPad'
 import Screen from '../../components/Screen'
 import { EmptyCard, ErrorCard, Skeleton, Tap, useDelayed } from '../../components/ui'
-import { ApiError, CosignRequest, api } from '../../services/api'
+import { ApiError, CosignRequest, api, beginAction } from '../../services/api'
 
 const COSIGNER_ID = 2 // TODO: from login; demo = Uncle Wang's daughter
 const POLL_MS = 3000
@@ -27,6 +27,7 @@ export default function Cosigner() {
   }, [load])
 
   const approve = async (r: CosignRequest, pin: string) => {
+    beginAction()
     setVerifying(true)
     setWrong('')
     try {
@@ -44,6 +45,7 @@ export default function Cosigner() {
     }
   }
   const decline = async (r: CosignRequest) => {
+    beginAction()
     try { await api.cosignDecline(r.id, COSIGNER_ID); setDone('已拒绝'); load() } catch { setDown(true) }
   }
 

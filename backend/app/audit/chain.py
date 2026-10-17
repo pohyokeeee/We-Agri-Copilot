@@ -9,7 +9,7 @@ import json
 
 from sqlmodel import Session, select
 
-from app import clock
+from app import clock, trace
 from app.models import AgentAudit
 
 GENESIS = "0" * 64
@@ -25,6 +25,7 @@ def _digest(prev_hash: str, ts: str, actor: str, event: str, payload: dict) -> s
 
 def append(session: Session, actor: str, event: str, payload: dict) -> AgentAudit:
     """Add one audit row in the caller's transaction (caller commits). Payload must be JSON primitives."""
+    payload = trace.stamp(payload)  # trace_id, endpoint and the wording-check result of this request
     last = session.exec(select(AgentAudit).order_by(AgentAudit.id.desc())).first()
     prev = last.hash if last else GENESIS
     ts = clock.now().isoformat()
@@ -37,11 +38,18 @@ def append(session: Session, actor: str, event: str, payload: dict) -> AgentAudi
     return row
 
 
+def verify_report(session: Session) -> dict:
+    """{ok, rows_checked, first_broken_id}; rows_checked counts rows examined up to and including a broken one."""
+    prev, checked = GENESIS, 0
+    for row in session.exec(select(AgentAudit).order_by(AgentAudit.id)):
+        checked += 1
+        if row.prev_hash != prev or row.hash != _digest(prev, row.ts, row.actor, row.event, row.payload):
+            return {"ok": False, "rows_checked": checked, "first_broken_id": row.id}
+        prev = row.hash
+    return {"ok": True, "rows_checked": checked, "first_broken_id": None}
+
+
 def verify_chain(session: Session) -> tuple[bool, int | None]:
     """(True, None) if intact, else (False, id of first broken row)."""
-    prev = GENESIS
-    for row in session.exec(select(AgentAudit).order_by(AgentAudit.id)):
-        if row.prev_hash != prev or row.hash != _digest(prev, row.ts, row.actor, row.event, row.payload):
-            return False, row.id
-        prev = row.hash
-    return True, None
+    r = verify_report(session)
+    return r["ok"], r["first_broken_id"]
