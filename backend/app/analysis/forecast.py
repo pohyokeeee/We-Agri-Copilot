@@ -15,9 +15,11 @@ from app import clock
 from app.agent.grounding import assert_wording
 from app.analysis.common import n, shift_months
 from app.analysis.compliance import DISCLAIMER
+from app.analysis.policy_match import interest_subsidy_for
 from app.analysis.reconcile import reconcile_range
 from app.analysis.history import _history, _month_end, _next_window
 from app.audit import chain
+from app.mockbank.financing import cost_options
 from app.mockbank.service import payee_known, reasons_zh, reserved_total, usual_amount
 from app.models import (
     BankAccount, BankCustomer, BankPayee, BankProduct, BankSchedule, BankTxn, CalendarEntry, PlatformOrder,
@@ -132,16 +134,8 @@ def _plan(s: Session, cust: BankCustomer, acct: BankAccount, suppliers: list[dic
     financing = []
     if gap_high > 0:
         loan = _ceil100(gap_high)
-        for p in s.exec(select(BankProduct)):
-            if p.eligibility.get("max_amount", float("inf")) < loan:
-                continue
-            interest, fee = round(loan * p.apr * p.term_months / 12, 2), round(loan * p.fees, 2)
-            total = round(interest + fee, 2)
-            financing.append({
-                "product_id": p.id, "name": p.name, "amount": loan, "apr": p.apr, "term_months": p.term_months,
-                "interest": interest, "fee": fee, "total_cost": total, "total_repay": round(loan + total, 2),
-                "text_zh": (f"{p.name}：借{n(loan)}元，{p.term_months}个月，年利率{p.apr:.2%}；利息约{n(interest)}元，"
-                            f"手续费{n(fee)}元，合计成本{n(total)}元，到期共还{n(loan + total)}元。额度和条件以银行审核为准。")})
+        found = interest_subsidy_for(s, cust, acct, loan, today)
+        financing = [o for o in cost_options(s, loan, None, found[0] if found else None) if o["within_limit"]]
         step("financing_prefill", "financing_prefill", f"如果要借钱，先预填贷款申请，借{n(loan)}元（还不会发出）", loan,
              classify("financing_prefill", amount=loan, balance=acct.balance, **kw))
         step("financing_submit", "financing_submit", "您确认后，才正式发出贷款申请", loan,
@@ -162,15 +156,17 @@ def _plan(s: Session, cust: BankCustomer, acct: BankAccount, suppliers: list[dic
     return {"steps": steps, "financing": financing, "executed": False}
 
 
-def forecast_procurement(s: Session, customer_id: int, today: date | None = None, horizon_days: int = HORIZON_DAYS) -> dict:
-    """See module docstring. Audited; caller commits."""
+def forecast_procurement(s: Session, customer_id: int, today: date | None = None, horizon_days: int = HORIZON_DAYS,
+                         audit: bool = True) -> dict:
+    """See module docstring. Audited (unless audit=False, for callers that write their own row); caller commits."""
     today = today or clock.today()
     cust = s.get(BankCustomer, customer_id)
     acct = s.exec(select(BankAccount).where(BankAccount.customer_id == customer_id)).first()
     if not cust or not acct:
         raise LookupError("customer not found")
     entries = s.exec(select(CalendarEntry)).all()
-    windows = sorted((*_next_window(e, today), e) for e in entries if (_next_window(e, today)[0] - today).days <= horizon_days)
+    windows = sorted(((*_next_window(e, today), e) for e in entries if (_next_window(e, today)[0] - today).days <= horizon_days),
+                     key=lambda w: (w[0], w[1], w[2].id))  # entries sharing a window must not be compared
     payees = {p.name: p for p in s.exec(select(BankPayee).where(BankPayee.customer_id == customer_id))}
 
     purchases = []
@@ -191,7 +187,8 @@ def forecast_procurement(s: Session, customer_id: int, today: date | None = None
     result = {"today": today.isoformat(), "next_purchases": purchases, "disclaimer": DISCLAIMER}
     if not purchases:
         result.update(assumptions=[f"未来{horizon_days}天内没有计划中的采购。"], plan={"steps": [], "financing": [], "executed": False})
-        chain.append(s, "analysis", "procurement_forecast", {"customer_id": customer_id, "today": result["today"], "purchases": 0})
+        if audit:
+            chain.append(s, "analysis", "procurement_forecast", {"customer_id": customer_id, "today": result["today"], "purchases": 0})
         return result
 
     first = purchases[0]["window_start"]  # cash and gap are measured against everything starting on the first date
@@ -228,8 +225,9 @@ def forecast_procurement(s: Session, customer_id: int, today: date | None = None
         cash_available_low=cash["cash_low"], cash_available_high=cash["cash_high"],
         gap_low=round(gap_low, 2), gap_high=round(gap_high, 2), gap_expected=round(gap_expected, 2),
         cash_detail=cash, assumptions=assumptions, plan=plan)
-    chain.append(s, "analysis", "procurement_forecast", {
-        "customer_id": customer_id, "today": result["today"], "window_start": first, "amount_low": result["amount_low"],
-        "amount_high": result["amount_high"], "gap_low": result["gap_low"], "gap_high": result["gap_high"],
-        "steps": [x["id"] + ":" + x["tier"] for x in plan["steps"]]})
+    if audit:
+        chain.append(s, "analysis", "procurement_forecast", {
+            "customer_id": customer_id, "today": result["today"], "window_start": first, "amount_low": result["amount_low"],
+            "amount_high": result["amount_high"], "gap_low": result["gap_low"], "gap_high": result["gap_high"],
+            "steps": [x["id"] + ":" + x["tier"] for x in plan["steps"]]})
     return result

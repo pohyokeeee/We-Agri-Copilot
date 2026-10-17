@@ -189,7 +189,9 @@ def seed(engine=default_engine) -> dict:
         s.add(BankCustomer(id=2, name="王小丽 (Uncle Wang's daughter)", phone="13900000002", device_id="dev-daughter",
                            pin_hash=hash_pin("654321")))
         s.add(BankCustomer(id=1, name="王建国 (Uncle Wang)", phone="13900000001", device_id="dev-wang",
-                           pin_hash=hash_pin("123456"), protection_mode=True, cosigner_id=2))
+                           pin_hash=hash_pin("123456"), protection_mode=True, cosigner_id=2,
+                           profile={"region": "示范县 (模拟)", "structure": "individual", "activity": ["apiculture", "produce"],
+                                    "cultivated_mu": 3.0, "coop_member": False, "coop_members": 0}))
         s.add(BankAccount(id=1, customer_id=1, balance=final))
         s.add_all(payees.values())
         s.add_all(orders)

@@ -95,7 +95,33 @@ export interface FinancingOption {
   fee: number
   total_cost: number
   total_repay: number
+  subsidy_amount: number | null // only when an interest subsidy is among the matches
+  cost_after_subsidy: number | null
   text_zh: string
+}
+
+export interface PolicyRule { key: string; text_zh: string }
+export interface PolicyItem {
+  policy_id: string
+  name: string
+  kind: string
+  benefit: string
+  documents: string[]
+  deadline: string | null
+  where_to_go: string
+  rules_met: PolicyRule[]
+  rules_unmet: PolicyRule[]
+  needs_verification: boolean
+  badge_zh: string | null
+  summary_zh: string
+  simulated: boolean
+}
+export interface PolicyMatch {
+  simulated_label: string
+  may_qualify: PolicyItem[]
+  if_you: PolicyItem[]
+  not_eligible: PolicyItem[] // kept for the trace page; never shown to the farmer
+  disclaimer: string
 }
 export interface Forecast {
   today: string
@@ -136,5 +162,6 @@ export const api = {
   reconcile: (period: string) => request<Reconcile>('GET', `/bank/income/reconcile?period=${period}`),
   compliance: (period?: string) => request<Compliance>('POST', '/analysis/compliance', period ? { period } : {}),
   procurementForecast: () => request<Forecast>('POST', '/analysis/procurement-forecast', {}),
+  policyMatch: () => request<PolicyMatch>('POST', '/analysis/policy-match', {}),
   structures: (period?: string) => request<Structures>('POST', '/analysis/structures', period ? { period } : {}),
 }

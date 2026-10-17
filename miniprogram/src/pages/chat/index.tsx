@@ -8,13 +8,13 @@ import PayFlow from '../../components/PayFlow'
 import PlanCard from '../../components/PlanCard'
 import ReadBackCard from '../../components/ReadBackCard'
 import Screen from '../../components/Screen'
-import SupportCard from '../../components/SupportCard'
+import SupportList from '../../components/SupportList'
 import { Dismissable, ErrorCard, Skeleton, Tap, useDelayed } from '../../components/ui'
-import { Compliance, Forecast, Structures, api } from '../../services/api'
-import { mockPlan, mockReadBack, mockSupport } from '../../mock'
+import { Compliance, Forecast, PolicyMatch, Structures, api } from '../../services/api'
+import { mockPlan, mockReadBack } from '../../mock'
 import { getSettings, setReducedMotion } from '../../utils/settings'
 
-type Ask = 'compliance' | 'forecast'
+type Ask = 'compliance' | 'forecast' | 'policy'
 
 const recorder = Taro.getRecorderManager()
 const audio = Taro.createInnerAudioContext()
@@ -49,7 +49,8 @@ export default function Chat() {
   const [compliance, setCompliance] = useState<Compliance | null>(null)
   const [structures, setStructures] = useState<Structures | null>(null)
   const [forecast, setForecast] = useState<Forecast | null>(null)
-  const slow = { compliance: useDelayed(busy === 'compliance'), forecast: useDelayed(busy === 'forecast') }
+  const [policies, setPolicies] = useState<PolicyMatch | null>(null)
+  const slow = { compliance: useDelayed(busy === 'compliance'), forecast: useDelayed(busy === 'forecast'), policy: useDelayed(busy === 'policy') }
 
   // Voice comes later: for now buttons ask the questions.
   const ask = async (kind: Ask, run: () => Promise<void>) => {
@@ -71,6 +72,7 @@ export default function Chat() {
     setStructures(s)
   })
   const askForecast = () => ask('forecast', async () => setForecast(await api.procurementForecast()))
+  const askPolicies = () => ask('policy', async () => setPolicies(await api.policyMatch()))
 
   const answer = useRef<(ok: boolean) => void>()
   // large-font explanation (native modals ignore our font size)
@@ -146,7 +148,7 @@ export default function Chat() {
       <Text className='card-q'>办一件事</Text>
       <PayFlow />
 
-      <Text className='card-q'>常问的两件事</Text>
+      <Text className='card-q'>常问的几件事</Text>
       <Tap kind='secondary' wide onClick={askCompliance}>{busy === 'compliance' ? '正在查…' : '我这样卖蜂蜜合规吗？'}</Tap>
       {slow.compliance && !compliance && <Skeleton />}
       {failed === 'compliance' && <ErrorCard onRetry={askCompliance} />}
@@ -158,9 +160,13 @@ export default function Chat() {
       {failed === 'forecast' && <ErrorCard onRetry={askForecast} />}
       {forecast && <ForecastCard data={forecast} />}
 
+      <Tap kind='secondary' wide onClick={askPolicies}>{busy === 'policy' ? '正在查…' : '有没有什么补贴我能申请？'}</Tap>
+      {slow.policy && !policies && <Skeleton />}
+      {failed === 'policy' && <ErrorCard onRetry={askPolicies} />}
+      {policies && <SupportList data={policies} />}
+
       <Text className='card-q'>界面示例（演示数据）</Text>
       <PlanCard title={mockPlan.title} steps={mockPlan.steps} />
-      <SupportCard {...mockSupport} />
       <ReadBackCard {...mockReadBack} />
 
       <Text className='card-q'>其他页面</Text>

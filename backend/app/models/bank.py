@@ -21,6 +21,8 @@ class BankCustomer(SQLModel, table=True):
     cosigner_id: int | None = Field(default=None, foreign_key="bank_customer.id")
     failed_pins: int = 0
     locked: bool = False
+    # declared business facts the policy matcher reads: structure, activity, cultivated_mu, coop_member, coop_members, region
+    profile: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
 
 class BankAccount(SQLModel, table=True):
@@ -134,3 +136,17 @@ class CosignRequest(SQLModel, table=True):
     status: str = "pending"  # pending | approved | declined | expired
     created_at: NaiveDatetime
     decided_at: NaiveDatetime | None = None
+
+
+class FinancingApplication(SQLModel, table=True):
+    """A loan application pre-filled from the sales record. Only ever 'sent' to the mock bank, never to a government system."""
+    __tablename__ = "financing_application"
+    id: int | None = Field(default=None, primary_key=True)
+    customer_id: int = Field(foreign_key="bank_customer.id", index=True)
+    product_id: int = Field(foreign_key="bank_product.id")
+    amount: float
+    term_months: int
+    prefill: dict = Field(default_factory=dict, sa_column=Column(JSON))
+    status: str = "draft"  # draft | submitted | withdrawn
+    created_at: NaiveDatetime
+    submitted_at: NaiveDatetime | None = None

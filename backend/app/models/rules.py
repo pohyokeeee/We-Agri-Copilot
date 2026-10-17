@@ -30,6 +30,8 @@ class RulePolicy(SQLModel, table=True):
     citation_url: str = "TODO"
     last_checked: date | None = None
     simulated: bool = True
+    where_to_go: str = ""
+    benefit_params: dict = Field(default_factory=dict, sa_column=Column(JSON))  # numbers behind the benefit text, e.g. subsidy rate and cap
 
 
 class CalendarEntry(SQLModel, table=True):

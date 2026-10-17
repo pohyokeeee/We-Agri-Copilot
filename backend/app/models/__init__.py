@@ -4,6 +4,7 @@ from app.models.bank import (
     BankApproval,
     BankCustomer,
     CosignRequest,
+    FinancingApplication,
     BankPayee,
     BankProduct,
     BankReserve,
@@ -15,5 +16,5 @@ from app.models.rules import CalendarEntry, RulePolicy, RuleTax
 
 __all__ = [
     "AgentAudit", "AgentPlan", "CalendarEntry", "BankAccount", "BankApproval", "BankCustomer", "BankPayee",
-    "BankProduct", "BankReserve", "BankSchedule", "BankTxn", "CosignRequest", "PlatformOrder", "RulePolicy", "RuleTax",
+    "BankProduct", "BankReserve", "BankSchedule", "BankTxn", "CosignRequest", "FinancingApplication", "PlatformOrder", "RulePolicy", "RuleTax",
 ]

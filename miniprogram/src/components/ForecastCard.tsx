@@ -34,8 +34,22 @@ export default function ForecastCard({ data }: { data: Forecast }) {
       {data.plan.financing.map((f) => (
         <View key={f.product_id} className='card enter-down'>
           <Text className='card-q'>借钱要多花多少？</Text>
-          <View><Text className='number'>{yuan(f.total_cost)}</Text><Text className='unit'>元</Text><Text className='small muted'>  利息加手续费</Text></View>
-          <Text>{f.text_zh}</Text>
+          <Text className='card-title'>{f.name}</Text>
+          <View className='row'>
+            <View className='inset grow'>
+              <Text className='small muted'>全部成本</Text>
+              <View><Text className='number'>{yuan(f.total_cost)}</Text><Text className='unit'>元</Text></View>
+              <Text className='small muted'>利息加手续费</Text>
+            </View>
+            <View className='inset grow'>
+              <Text className='small muted'>拿到利息补贴后</Text>
+              {f.cost_after_subsidy === null
+                ? <Text className='small'>没有查到可能符合的补贴</Text>
+                : <View><Text className='number'>{yuan(f.cost_after_subsidy)}</Text><Text className='unit'>元</Text></View>}
+              {f.subsidy_amount !== null && <Text className='small muted'>补贴约 {yuan(f.subsidy_amount)} 元，只抵利息</Text>}
+            </View>
+          </View>
+          <Text className='small muted'>额度、条件和补贴都以审核为准。</Text>
         </View>
       ))}
 

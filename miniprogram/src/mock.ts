@@ -10,13 +10,6 @@ export const mockPlan = {
   ],
 }
 
-export const mockSupport = {
-  name: '农业经营主体流动资金贴息 (模拟)',
-  wording: '你可能符合条件 (may qualify)',
-  documents: ['营业执照或经营证明', '贷款合同', '利息支付凭证'],
-  deadline: '2026-12-31',
-}
-
 export const mockReadBack = { text: '付给 李国强 4,250 元，对吗？', tier: 'yellow' as Tier }
 
 export const mockTrace = [

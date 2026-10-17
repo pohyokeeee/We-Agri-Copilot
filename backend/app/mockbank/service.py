@@ -20,7 +20,9 @@ from sqlmodel import Session, select
 from app import clock
 from app.audit import chain
 from app.mockbank.numerals import amount_digits, amount_zh
-from app.models import BankAccount, BankApproval, BankCustomer, BankPayee, BankReserve, BankTxn, CosignRequest
+from app.models import (
+    BankAccount, BankApproval, BankCustomer, BankPayee, BankProduct, BankReserve, BankTxn, CosignRequest, FinancingApplication,
+)
 from app.risk.tiers import GREEN, RED, classify
 
 TOKEN_TTL = timedelta(minutes=5)
@@ -100,6 +102,11 @@ def summary_zh(s: Session, cust: BankCustomer, ap: BankApproval) -> str:
         payee = s.get(BankPayee, p["payee_id"])
         tail = f"，用途：{p['purpose']}" if p.get("purpose") else ""
         return f"{_short(cust)}要转 {amount_digits(p['amount'])} 元（{amount_zh(p['amount'])}）给{payee.name if payee else '未知收款人'}{tail}"
+    if ap.action == "financing_submit":
+        app = s.get(FinancingApplication, p["application_id"])
+        product = s.get(BankProduct, app.product_id)
+        return (f"{_short(cust)}要正式发出一份贷款申请：{product.name}，借 {amount_digits(app.amount)} 元（{amount_zh(app.amount)}），"
+                f"{app.term_months}个月")
     if ap.action == "unlock":
         return f"{_short(cust)}的账户被安全锁锁住了，要解除安全锁"
     return f"{_short(cust)}要{ap.action}：{amount_digits(p.get('amount', 0))} 元"
