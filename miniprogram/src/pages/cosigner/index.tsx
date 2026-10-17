@@ -1,61 +1,82 @@
-import { Input, Text, View } from '@tarojs/components'
-import Taro from '@tarojs/taro'
-import { useEffect, useState } from 'react'
+import { Text, View } from '@tarojs/components'
+import { useCallback, useEffect, useState } from 'react'
+import PinPad from '../../components/PinPad'
 import Screen from '../../components/Screen'
-import { EmptyCard, Skeleton, Tap, TierChip, useDelayed, yuan } from '../../components/ui'
-import { Approval, api } from '../../services/api'
+import { EmptyCard, ErrorCard, Skeleton, Tap, useDelayed } from '../../components/ui'
+import { ApiError, CosignRequest, api } from '../../services/api'
 
 const COSIGNER_ID = 2 // TODO: from login; demo = Uncle Wang's daughter
-
-const FALLBACK: Approval = { // shown when the backend is not running
-  approval_id: 0, action: 'transfer', payload: { payee: '孙海', amount: 4800 }, tier: 'red',
-  reasons: ['new payee', 'night-time (23:00-06:00)'], requires_cosigner: true, status: 'pending', approval_token: null,
-}
-const REASON_ZH: Record<string, string> = { 'new payee': '新的收款人', 'night-time (23:00-06:00)': '夜里 23 点到 6 点' }
+const POLL_MS = 3000
 
 export default function Cosigner() {
-  const [req, setReq] = useState<Approval | null>(null)
-  const [loaded, setLoaded] = useState(false)
-  const [pin, setPin] = useState('')
-  const slow = useDelayed(!loaded)
+  const [list, setList] = useState<CosignRequest[] | null>(null) // null = not loaded yet
+  const [down, setDown] = useState(false)
+  const [asking, setAsking] = useState<number | null>(null) // request whose PIN pad is open
+  const [verifying, setVerifying] = useState(false)
+  const [wrong, setWrong] = useState('')
+  const [done, setDone] = useState('')
+  const slow = useDelayed(list === null && !down)
 
-  useEffect(() => {
-    api.pendingForCosigner(COSIGNER_ID).then((l) => setReq(l[0] ?? null)).catch(() => setReq(FALLBACK)).finally(() => setLoaded(true))
+  const load = useCallback(async () => {
+    try { setList(await api.cosignPending(COSIGNER_ID)); setDown(false) } catch { setDown(true) }
   }, [])
+  useEffect(() => {
+    load()
+    const t = setInterval(load, POLL_MS)
+    return () => clearInterval(t)
+  }, [load])
 
-  const answer = async (approve: boolean) => {
-    if (!req || pin.length !== 6) return Taro.showToast({ title: '请输入6位密码', icon: 'none' })
+  const approve = async (r: CosignRequest, pin: string) => {
+    setVerifying(true)
+    setWrong('')
     try {
-      await api.cosign(req.approval_id, COSIGNER_ID, pin, approve)
-      Taro.showToast({ title: approve ? '已同意' : '已拒绝' })
-      setReq(null)
+      await api.cosignApprove(r.id, COSIGNER_ID, pin)
+      setAsking(null)
+      setDone('已同意')
+      load()
     } catch (e) {
-      Taro.showToast({ title: '失败，请重试', icon: 'none' })
+      if (e instanceof ApiError && e.status === 401) setWrong('密码不对，请再试一次')
+      else if (e instanceof ApiError && e.status === 423) { setWrong('密码输错太多次，已锁住'); setAsking(null) }
+      else if (e instanceof ApiError) { setAsking(null); load() } // already decided or timed out
+      else setWrong('连不上银行，请稍后再试')
+    } finally {
+      setVerifying(false)
     }
   }
+  const decline = async (r: CosignRequest) => {
+    try { await api.cosignDecline(r.id, COSIGNER_ID); setDone('已拒绝'); load() } catch { setDown(true) }
+  }
 
-  const amount = Number(req?.payload.amount)
   return (
     <Screen title='家人确认' back>
-      {!loaded && slow && <Skeleton />}
-      {loaded && !req && <EmptyCard>现在没有需要您确认的事</EmptyCard>}
-      {req && (
-        <>
-          <View className='card enter-down'>
-            <Text className='card-q'>{req.action === 'unlock' ? '有人要解除安全锁' : '有一笔转账等您确认'}</Text>
-            {amount > 0 && <View><Text className='number'>{yuan(amount)}</Text><Text className='unit'>元</Text></View>}
-            {typeof req.payload.payee === 'string' && <Text className='card-title'>给 {req.payload.payee}</Text>}
-            <View className='row'><TierChip tier={req.tier} /></View>
-            <View className='inset'>
-              <Text className='small muted'>为什么要您确认</Text>
-              {(req.reasons.length ? req.reasons : ['账户开启了家人保护']).map((r) => <Text key={r}>· {REASON_ZH[r] ?? r}</Text>)}
-            </View>
+      {done && <View className='row'><Text className='chip chip-done'>✓ {done}</Text></View>}
+      {down && <ErrorCard onRetry={load} />}
+      {list === null && slow && <Skeleton />}
+      {list?.length === 0 && !down && <EmptyCard>现在没有需要您确认的事</EmptyCard>}
+      {list?.map((r) => (
+        <View key={r.id} className='card enter-down'>
+          <Text className='card-q'>有一件事等您确认</Text>
+          <Text className='card-title'>{r.summary_zh}</Text>
+          <View className='inset'>
+            <Text className='small muted'>为什么要您确认</Text>
+            {(r.reasons_zh.length ? r.reasons_zh : ['账户开启了家人保护']).map((x) => <Text key={x}>· {x}</Text>)}
           </View>
-          <Input className='input' type='number' password maxlength={6} placeholder='您的6位密码' onInput={(e) => setPin(e.detail.value)} />
-          <Tap kind='primary' wide onClick={() => answer(true)}>同意</Tap>
-          <Tap kind='secondary' wide onClick={() => answer(false)}>拒绝</Tap>
-        </>
-      )}
+          <Text className='small muted'>还剩 {r.seconds_left} 秒，超时就不转了</Text>
+          {asking === r.id ? (
+            <>
+              <Text className='card-title'>请输入您的6位密码</Text>
+              {wrong && <Text className='chip chip-red'>■ {wrong}</Text>}
+              <PinPad busy={verifying} onComplete={(pin) => approve(r, pin)} />
+              <Tap kind='quiet' onClick={() => { setAsking(null); setWrong('') }}>先不同意</Tap>
+            </>
+          ) : (
+            <>
+              <Tap kind='primary' wide onClick={() => { setAsking(r.id); setDone('') }}>同意</Tap>
+              <Tap kind='secondary' wide onClick={() => decline(r)}>拒绝</Tap>
+            </>
+          )}
+        </View>
+      ))}
     </Screen>
   )
 }

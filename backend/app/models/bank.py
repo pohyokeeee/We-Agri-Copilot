@@ -102,18 +102,35 @@ class BankProduct(SQLModel, table=True):
 
 
 class BankApproval(SQLModel, table=True):
-    """Pending/granted approval for a non-green action. Token is single-use, bound to action+payload."""
+    """A non-green action waiting for (or holding) approval. The token is single-use and bound to action_hash."""
     __tablename__ = "bank_approval"
     id: int | None = Field(default=None, primary_key=True)
     customer_id: int = Field(foreign_key="bank_customer.id", index=True)
     action: str
     payload: dict = Field(default_factory=dict, sa_column=Column(JSON))
-    tier: str
+    action_hash: str = ""  # sha256 of (payer, action, payload); for transfers payload = payee_id, amount, purpose
+    tier_base: str = ""
+    tier: str  # final tier
     reasons: list = Field(default_factory=list, sa_column=Column(JSON))
     requires_cosigner: bool = False
     challenge: str = ""
+    confirmed: bool = False  # the customer said "yes" to the read-back
     pin_ok: bool = False
-    cosign: str = "pending"  # pending | approved | declined
-    status: str = "pending"  # pending | approved | declined | used
+    cosign: str = "none"  # none | pending | approved | declined | expired
+    status: str = "pending"  # pending | approved | declined | expired | used
     token: str | None = Field(default=None, index=True)
+    token_at: NaiveDatetime | None = None  # when the token was granted (it expires 5 minutes later)
     created_at: NaiveDatetime
+
+
+class CosignRequest(SQLModel, table=True):
+    __tablename__ = "cosign_request"
+    id: int | None = Field(default=None, primary_key=True)
+    customer_id: int = Field(foreign_key="bank_customer.id", index=True)
+    approval_id: int = Field(foreign_key="bank_approval.id", index=True)
+    action_hash: str
+    summary_zh: str
+    reasons: list = Field(default_factory=list, sa_column=Column(JSON))
+    status: str = "pending"  # pending | approved | declined | expired
+    created_at: NaiveDatetime
+    decided_at: NaiveDatetime | None = None

@@ -12,7 +12,8 @@ from app.audit import chain
 from app.db import get_session
 from app.mockbank import schemas as sc
 from app.mockbank import service as svc
-from app.models import BankApproval, BankCustomer, BankPayee, BankReserve, BankTxn
+from app.mockbank.plan import plan_transfers
+from app.models import BankApproval, BankCustomer, BankPayee, BankReserve, BankTxn, CosignRequest
 
 router = APIRouter(prefix="/bank", tags=["mock bank (simulated)"])
 
@@ -37,7 +38,8 @@ def transactions(customer_id: int = 1, limit: int = 50, s: Session = Depends(get
 
 @router.get("/payees")
 def payees(customer_id: int = 1, q: str | None = None, s: Session = Depends(get_session)):
-    """Fuzzy search on name/aliases/phone/note: substring hit = 1.0, else best similarity >= 0.5 on name/aliases."""
+    """Fuzzy search on name/aliases/phone/note: substring hit = 1.0, else best similarity >= 0.5 on name/aliases.
+    0, 1 or several candidates; if anything matches exactly, only the exact matches are returned."""
     out = []
     for p in s.exec(select(BankPayee).where(BankPayee.customer_id == customer_id)):
         names = [p.name, *p.aliases]
@@ -48,7 +50,9 @@ def payees(customer_id: int = 1, q: str | None = None, s: Session = Depends(get_
         else:
             score = max(SequenceMatcher(None, q.lower(), n.lower()).ratio() for n in names)
         if score >= 0.5:
-            out.append({**p.model_dump(), "known": p.first_paid_at is not None, "score": round(score, 2)})
+            out.append({**p.model_dump(), "known": svc.payee_known(p), "score": round(score, 2)})
+    if q and any(d["score"] == 1.0 for d in out):  # an exact hit is not ambiguous: drop look-alikes (老李 vs 老赵)
+        out = [d for d in out if d["score"] == 1.0]
     return sorted(out, key=lambda d: -d["score"])
 
 
@@ -60,41 +64,67 @@ def payouts(customer_id: int = 1, s: Session = Depends(get_session)):
 
 
 # ---------- state changes (tiered) ----------
+def _payee(s: Session, cust: BankCustomer, payee_id: int) -> BankPayee:
+    payee = s.get(BankPayee, payee_id)
+    if not payee or payee.customer_id != cust.id:
+        raise HTTPException(404, "payee not found")
+    return payee
+
+
+@router.post("/transfers/readback")
+def transfer_readback(body: sc.ReadbackIn, s: Session = Depends(get_session)):
+    """The sentence read back to the customer before anything happens. A template, never an LLM."""
+    cust, _ = svc.get_customer(s, body.customer_id)
+    payee = _payee(s, cust, body.payee_id)
+    return {"text_zh": svc.readback_zh(payee.name, body.spoken_as, body.amount, body.purpose),
+            "payee_id": payee.id, "payee_name": payee.name, "amount": body.amount, "purpose": body.purpose}
+
+
+@router.post("/transfers/plan")
+def transfers_plan(body: sc.PlanIn, s: Session = Depends(get_session)):
+    """Pay like last year: one item per supplier with its tier. Nothing is executed."""
+    cust, acct = svc.get_customer(s, body.customer_id)
+    result = plan_transfers(s, cust, acct, body.category, body.purpose)
+    s.commit()
+    return result
+
+
 @router.post("/transfers")
 def transfer(body: sc.TransferIn, s: Session = Depends(get_session)):
     cust, acct = svc.get_customer(s, body.customer_id)
-    payee = s.get(BankPayee, body.payee_id)
-    if not payee or payee.customer_id != cust.id:
-        raise HTTPException(404, "payee not found")
-    payload = {"payee_id": payee.id, "amount": body.amount}
-    tier, ap = svc.gate(
-        s, cust, "transfer", body.amount, payload, body.approval_token,
-        payee_known=payee.first_paid_at is not None, daily_total=svc.daily_total(s, acct.id),
+    payee = _payee(s, cust, body.payee_id)
+    amount = float(round(body.amount, 2))
+    payload = {"payee_id": payee.id, "amount": amount, "purpose": body.purpose}
+    tier, ap, used = svc.gate(
+        s, cust, "transfer", amount, payload, body.approval_token,
+        payee_known=svc.payee_known(payee), daily_total=svc.daily_total(s, acct.id),
         usual_amount=svc.usual_amount(s, acct.id), balance=acct.balance,
     )
     if ap:
         s.commit()
         return _pending(ap)
     available = acct.balance - svc.reserved_total(s, cust.id)
-    if body.amount > available:
+    if amount > available:
         raise HTTPException(409, f"insufficient available funds ({available:.2f})")  # rolls back token use
     before = acct.balance
-    acct.balance = round(before - body.amount, 2)
+    acct.balance = round(before - amount, 2)
     now = clock.now()
-    s.add(BankTxn(account_id=acct.id, ts=now, amount=body.amount, direction="debit", counterparty=payee.name,
-                  channel="transfer", category="supplier"))
+    s.add(BankTxn(account_id=acct.id, ts=now, amount=amount, direction="debit", counterparty=payee.name,
+                  channel="transfer", category="supplier", note_untrusted=body.purpose))
     payee.first_paid_at = payee.first_paid_at or now
-    chain.append(s, "mockbank", "transfer_executed", {**payload, "tier": tier["final_tier"],
-                 "balance_before": before, "balance_after": acct.balance})
+    svc.audit_step(s, "transfer_executed", cust.id, ap=used, tier=tier, method=svc.method_of(used) if used else "none",
+                   result="executed", balance_before=before, balance_after=acct.balance, payee_id=payee.id, amount=amount, purpose=body.purpose)
     s.commit()
-    return {"status": "executed", "balance_before": before, "balance_after": acct.balance}
+    return {"status": "executed", "balance_before": before, "balance_after": acct.balance, "payee": payee.name,
+            "amount": amount, "purpose": body.purpose}
 
 
 @router.post("/reserves")
 def create_reserve(body: sc.ReserveIn, s: Session = Depends(get_session)):
     cust, acct = svc.get_customer(s, body.customer_id)
     payload = {"label": body.label, "amount": body.amount}
-    tier, ap = svc.gate(s, cust, "reserve", body.amount, payload, body.approval_token, balance=acct.balance)
+    payload["amount"] = float(round(body.amount, 2))
+    tier, ap, used = svc.gate(s, cust, "reserve", body.amount, payload, body.approval_token, balance=acct.balance)
     if ap:
         s.commit()
         return _pending(ap)
@@ -103,8 +133,8 @@ def create_reserve(body: sc.ReserveIn, s: Session = Depends(get_session)):
     r = BankReserve(customer_id=cust.id, label=body.label, amount=body.amount, created_at=clock.now())
     s.add(r)
     s.flush()
-    chain.append(s, "mockbank", "reserve_created", {"reserve_id": r.id, **payload, "tier": tier["final_tier"],
-                 "balance_before": acct.balance, "balance_after": acct.balance})
+    svc.audit_step(s, "reserve_created", cust.id, ap=used, tier=tier, method=svc.method_of(used) if used else "none",
+                   result="created", reserve_id=r.id, **payload)
     s.commit()
     return {"status": "created", "reserve_id": r.id}
 
@@ -156,78 +186,78 @@ def income_reconcile(period: str, customer_id: int = 1, s: Session = Depends(get
 
 
 # ---------- auth / approvals ----------
+def _approval(s: Session, approval_id: int) -> BankApproval:
+    svc.expire_stale(s)  # a co-sign request nobody answered in 5 minutes dies here
+    ap = s.get(BankApproval, approval_id)
+    if not ap:
+        raise HTTPException(404, "approval not found")
+    return ap
+
+
+@router.get("/approvals/{approval_id}")
+def get_approval(approval_id: int, s: Session = Depends(get_session)):
+    ap = _approval(s, approval_id)
+    s.commit()  # persists an expiry
+    return svc.approval_view(ap)
+
+
+@router.post("/approvals/{approval_id}/confirm")
+def confirm_approval(approval_id: int, s: Session = Depends(get_session)):
+    """The customer says "yes" to the read-back. Yellow is then approved; red goes on to PIN (and co-sign)."""
+    ap = _approval(s, approval_id)
+    cust, _ = svc.get_customer(s, ap.customer_id)
+    svc.ensure_unlocked(cust)
+    if ap.status != "pending":
+        raise HTTPException(409, f"approval is {ap.status}")
+    ap.confirmed = True
+    svc.maybe_approve(ap)
+    s.add(ap)
+    svc.audit_step(s, "confirmed", cust.id, ap=ap, method="confirm", result=ap.status)
+    s.commit()
+    return svc.approval_view(ap)
+
+
+@router.post("/approvals/{approval_id}/cancel")
+def cancel_approval(approval_id: int, s: Session = Depends(get_session)):
+    """"不对，取消": nothing executes, nothing changes."""
+    ap = _approval(s, approval_id)
+    if ap.status != "pending":
+        raise HTTPException(409, f"approval is {ap.status}")
+    ap.status = "declined"
+    s.add(ap)
+    for cr in s.exec(select(CosignRequest).where(CosignRequest.approval_id == ap.id, CosignRequest.status == "pending")):
+        cr.status, cr.decided_at = "declined", clock.now()
+        s.add(cr)
+    svc.audit_step(s, "cancelled", ap.customer_id, ap=ap, method="customer", result="cancelled")
+    s.commit()
+    return svc.approval_view(ap)
+
+
 @router.post("/auth/mfa/challenge")
 def mfa_challenge(body: sc.MfaChallengeIn, s: Session = Depends(get_session)):
-    ap = s.get(BankApproval, body.approval_id)
-    if not ap or ap.status != "pending":
-        raise HTTPException(404, "no pending approval")
+    ap = _approval(s, body.approval_id)
+    if ap.status != "pending" or not ap.confirmed or ap.tier != "red":
+        raise HTTPException(409, "a PIN is only asked for a confirmed red approval")
     ap.challenge = secrets.token_hex(4)
     s.add(ap)
     s.commit()
     return {"approval_id": ap.id, "challenge": ap.challenge, "method": "pin6"}
 
 
-def _check_pin(s: Session, who: BankCustomer, pin: str):
-    """None if PIN ok; else a JSONResponse (failure already committed so the counter/lock persist)."""
-    if who.locked:
-        raise HTTPException(423, "account is locked")
-    if svc.check_pin(pin, who.pin_hash):
-        who.failed_pins = 0
-        s.add(who)
-        return None
-    locked = svc.record_pin_failure(s, who)
-    s.commit()
-    return JSONResponse(status_code=423 if locked else 401,
-                        content={"detail": "locked after 3 wrong PINs" if locked else "wrong PIN", "locked": locked})
-
-
 @router.post("/auth/mfa/verify")
 def mfa_verify(body: sc.MfaVerifyIn, s: Session = Depends(get_session)):
-    ap = s.get(BankApproval, body.approval_id)
-    if not ap or ap.status != "pending" or not ap.challenge or not secrets.compare_digest(ap.challenge, body.challenge):
+    ap = _approval(s, body.approval_id)
+    if ap.status != "pending" or not ap.challenge or not secrets.compare_digest(ap.challenge, body.challenge):
         raise HTTPException(404, "no matching pending challenge")
-    if err := _check_pin(s, s.get(BankCustomer, ap.customer_id), body.pin):
+    cust = s.get(BankCustomer, ap.customer_id)
+    if err := svc.verify_pin(s, cust, body.pin):
         return err
     ap.pin_ok = True
-    svc.maybe_approve(ap)
     s.add(ap)
-    chain.append(s, "mockbank", "pin_verified", {"approval_id": ap.id, "status": ap.status})
-    s.commit()
-    return svc.approval_view(ap)
-
-
-@router.get("/approvals")
-def pending_for_cosigner(cosigner_id: int, s: Session = Depends(get_session)):
-    rows = s.exec(select(BankApproval).join(BankCustomer, BankCustomer.id == BankApproval.customer_id).where(
-        BankCustomer.cosigner_id == cosigner_id, BankApproval.status == "pending",
-        BankApproval.requires_cosigner == True, BankApproval.cosign == "pending"))  # noqa: E712
-    return [svc.approval_view(a) for a in rows]
-
-
-@router.get("/approvals/{approval_id}")
-def get_approval(approval_id: int, s: Session = Depends(get_session)):
-    ap = s.get(BankApproval, approval_id)
-    if not ap:
-        raise HTTPException(404, "approval not found")
-    return svc.approval_view(ap)
-
-
-@router.post("/approvals/{approval_id}/cosign")
-def cosign(approval_id: int, body: sc.CosignIn, s: Session = Depends(get_session)):
-    ap = s.get(BankApproval, approval_id)
-    cust = ap and s.get(BankCustomer, ap.customer_id)
-    if not ap or ap.status != "pending" or not ap.requires_cosigner:
-        raise HTTPException(404, "no pending approval needing a co-signer")
-    if cust.cosigner_id != body.cosigner_id:
-        raise HTTPException(403, "not this customer's co-signer")
-    if err := _check_pin(s, s.get(BankCustomer, body.cosigner_id), body.pin):
-        return err
-    ap.cosign = "approved" if body.approve else "declined"
-    if not body.approve:
-        ap.status = "declined"
+    svc.audit_step(s, "pin_verified", cust.id, ap=ap, method="pin", result="ok")
+    if ap.requires_cosigner and ap.cosign == "none":
+        svc.request_cosign(s, cust, ap)  # the co-signer is only asked once the customer's own PIN is right
     svc.maybe_approve(ap)
-    s.add(ap)
-    chain.append(s, "mockbank", "cosigned", {"approval_id": ap.id, "cosigner_id": body.cosigner_id, "cosign": ap.cosign})
     s.commit()
     return svc.approval_view(ap)
 
@@ -249,12 +279,12 @@ def unlock(body: sc.UnlockIn, s: Session = Depends(get_session)):
     cust, acct = svc.get_customer(s, body.customer_id)
     if not cust.locked:
         raise HTTPException(409, "not locked")
-    _, ap = svc.gate(s, cust, "unlock", 0.0, {"customer_id": cust.id}, body.approval_token)
+    tier, ap, used = svc.gate(s, cust, "unlock", 0.0, {"customer_id": cust.id}, body.approval_token)
     if ap:
         s.commit()
         return _pending(ap)
     cust.locked, cust.failed_pins = False, 0
     s.add(cust)
-    chain.append(s, "mockbank", "unlocked", {"customer_id": cust.id, "balance_before": acct.balance, "balance_after": acct.balance})
+    svc.audit_step(s, "unlocked", cust.id, ap=used, tier=tier, method=svc.method_of(used) if used else "none", result="unlocked")
     s.commit()
     return {"locked": False}

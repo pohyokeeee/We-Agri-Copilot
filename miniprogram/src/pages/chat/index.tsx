@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import ComparisonCard from '../../components/ComparisonCard'
 import FlagsCard from '../../components/FlagsCard'
 import ForecastCard from '../../components/ForecastCard'
+import PayFlow from '../../components/PayFlow'
 import PlanCard from '../../components/PlanCard'
 import ReadBackCard from '../../components/ReadBackCard'
 import Screen from '../../components/Screen'
@@ -141,6 +142,9 @@ export default function Chat() {
         </Dismissable>
       )}
       {heard && <Text className='card enter-down'>{heard}</Text>}
+
+      <Text className='card-q'>办一件事</Text>
+      <PayFlow />
 
       <Text className='card-q'>常问的两件事</Text>
       <Tap kind='secondary' wide onClick={askCompliance}>{busy === 'compliance' ? '正在查…' : '我这样卖蜂蜜合规吗？'}</Tap>

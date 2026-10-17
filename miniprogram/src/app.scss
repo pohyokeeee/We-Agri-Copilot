@@ -58,7 +58,7 @@ page {
 .tappable { min-height: var(--tap-min); }
 
 // ---------- press feedback: instant, on touch-down (hover-start-time 0) ----------
-.btn, .tappable, .ptt { transition: transform var(--dur-press) ease-out, opacity var(--dur-press) ease-out; }
+.btn, .tappable, .ptt, .pad-key { transition: transform var(--dur-press) ease-out, opacity var(--dur-press) ease-out; }
 .pressed { transform: scale(var(--press-scale)); opacity: var(--press-dim); }
 
 // ---------- buttons ----------
@@ -99,7 +99,7 @@ page {
 // reduced motion: no travel, a short cross-fade instead
 .rm .enter-down, .rm .enter-up { animation: fade-in var(--dur-fade) linear both; }
 .rm .leave-down, .rm .leave-up { animation: fade-out var(--dur-fade) linear both; }
-.rm .btn, .rm .tappable, .rm .ptt { transition: opacity var(--dur-press) linear; }
+.rm .btn, .rm .tappable, .rm .ptt, .rm .pad-key { transition: opacity var(--dur-press) linear; }
 .rm .pressed { transform: none; }
 
 // ---------- skeleton (never a spinner) ----------
@@ -120,3 +120,12 @@ page {
 .input { flex: 1; min-height: var(--tap-min); padding: 0 var(--sp-3); background: var(--surface); border-radius: var(--r-md);
   font-size: var(--fs-body); }
 .bar-row { width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: var(--sp-3); box-sizing: border-box; }
+
+// ---------- PIN pad: 3x4 keys, masked dots ----------
+.dots { display: flex; flex-direction: row; justify-content: center; gap: var(--sp-3); }
+.dot { width: var(--sp-4); height: var(--sp-4); border-radius: var(--r-pill); background: var(--line); }
+.dot.on { background: var(--ink); }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
+.pad-key { min-height: calc(var(--tap-min) * 1.5); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-1);
+  display: flex; align-items: center; justify-content: center; font-size: var(--fs-figure); font-weight: 700; }
+.pad-key.quiet { background: transparent; box-shadow: none; font-size: var(--fs-body); color: var(--accent); }

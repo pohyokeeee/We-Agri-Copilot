@@ -16,8 +16,9 @@ from app.agent.grounding import assert_wording
 from app.analysis.common import n, shift_months
 from app.analysis.compliance import DISCLAIMER
 from app.analysis.reconcile import reconcile_range
+from app.analysis.history import _history, _month_end, _next_window
 from app.audit import chain
-from app.mockbank.service import reserved_total, usual_amount
+from app.mockbank.service import payee_known, reasons_zh, reserved_total, usual_amount
 from app.models import (
     BankAccount, BankCustomer, BankPayee, BankProduct, BankSchedule, BankTxn, CalendarEntry, PlatformOrder,
 )
@@ -25,17 +26,7 @@ from app.risk.tiers import classify, max_tier
 
 HORIZON_DAYS = 60  # purchases starting within this many days are "next"
 MARKER = {"green": "🟢", "yellow": "🟡", "red": "🔴"}
-REASON_ZH = [("new payee", "新收款人"), ("daily total", "当天累计转账超过1000元"), ("2x usual", "金额超过平时转账的2倍"),
-             ("50% of balance", "金额超过余额的一半"), ("night", "夜间（23:00-06:00）")]
 CATEGORY_ZH = {"household": "家庭开支"}
-
-
-def _zh(reason: str) -> str:
-    return next((z for k, z in REASON_ZH if k in reason), reason)
-
-
-def _month_end(y: int, m: int) -> date:
-    return date(y, m, calendar.monthrange(y, m)[1])
 
 
 def _next_month(d: date) -> date:
@@ -44,27 +35,6 @@ def _next_month(d: date) -> date:
 
 def _ceil100(x: float) -> float:
     return float(math.ceil(x / 100) * 100)
-
-
-def _next_window(e: CalendarEntry, today: date) -> tuple[date, date]:
-    y = today.year if date(today.year, e.month_from, 1) >= today else today.year + 1
-    return date(y, e.month_from, 1), _month_end(y, e.month_to)
-
-
-def _history(s: Session, account_id: int, e: CalendarEntry, start: date, end: date):
-    """Debits of this purchase category inside the same window 1-3 years back, grouped by counterparty."""
-    by, last, years = defaultdict(list), defaultdict(float), 0
-    for k in (1, 2, 3):
-        lo = datetime.combine(start.replace(year=start.year - k), time.min)
-        hi = datetime.combine(end.replace(year=end.year - k), time.min) + timedelta(days=1)
-        rows = s.exec(select(BankTxn).where(BankTxn.account_id == account_id, BankTxn.direction == "debit",
-                                            BankTxn.category == e.typical_purchase, BankTxn.ts >= lo, BankTxn.ts < hi)).all()
-        years += bool(rows)
-        for t in rows:
-            by[t.counterparty].append(t.amount)
-            if k == 1:
-                last[t.counterparty] += t.amount
-    return by, last, years
 
 
 def _occurrences(day: int, today: date, until: date) -> list[date]:
@@ -141,7 +111,7 @@ def _cash(s: Session, cust: BankCustomer, acct: BankAccount, today: date, start:
 
 
 def _plan(s: Session, cust: BankCustomer, acct: BankAccount, suppliers: list[dict], need_mid: float,
-          gap_high: float, available: float) -> dict:
+          gap_high: float, available: float, today: date) -> dict:
     """Suggested steps with the tier each would get from the tier engine. Executes nothing."""
     now = clock.now()
     payees = {p.id: p for p in s.exec(select(BankPayee).where(BankPayee.customer_id == cust.id))}
@@ -151,7 +121,7 @@ def _plan(s: Session, cust: BankCustomer, acct: BankAccount, suppliers: list[dic
     def step(sid, kind, text, amount, tier_result, **extra):
         steps.append({"id": sid, "kind": kind, "text_zh": text, "amount": amount, "tier": tier_result["final_tier"],
                       "marker": MARKER[tier_result["final_tier"]], "reasons": tier_result["reasons"],
-                      "reasons_zh": list(dict.fromkeys(_zh(r) for r in tier_result["reasons"])),
+                      "reasons_zh": reasons_zh(tier_result["reasons"]),
                       "requires_cosigner": tier_result["requires_cosigner"], **extra})
 
     kw = dict(now=now, protection_mode=cust.protection_mode)
@@ -180,7 +150,7 @@ def _plan(s: Session, cust: BankCustomer, acct: BankAccount, suppliers: list[dic
         tiers, rows = None, []
         for sp in suppliers:
             p = payees.get(sp["payee_id"])
-            r = classify("transfer", amount=sp["typical_payment"], payee_known=bool(p and p.first_paid_at),
+            r = classify("transfer", amount=sp["typical_payment"], payee_known=payee_known(p, today),
                          usual_amount=usual, balance=acct.balance, **kw)
             tiers = r if tiers is None else {**r, "final_tier": max_tier(tiers["final_tier"], r["final_tier"]),
                                              "reasons": sorted(set(tiers["reasons"]) | set(r["reasons"])),
@@ -232,7 +202,7 @@ def forecast_procurement(s: Session, customer_id: int, today: date | None = None
     gap_low, gap_high = max(0.0, need_lo - cash["cash_high"]), max(0.0, need_hi - cash["cash_low"])
     gap_expected = max(0.0, (need_lo + need_hi) / 2 - (cash["cash_low"] + cash["cash_high"]) / 2)
     suppliers = [sp for p in group for sp in p["suppliers"]]
-    plan = _plan(s, cust, acct, suppliers, (need_lo + need_hi) / 2, gap_high, cash["available"])
+    plan = _plan(s, cust, acct, suppliers, (need_lo + need_hi) / 2, gap_high, cash["available"], today)
 
     assumptions = []
     if suppliers:
