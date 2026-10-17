@@ -127,7 +127,7 @@ def _plan(s: Session, cust: BankCustomer, acct: BankAccount, suppliers: list[dic
                       "requires_cosigner": tier_result["requires_cosigner"], **extra})
 
     kw = dict(now=now, protection_mode=cust.protection_mode)
-    reserve = _ceil100(min(need_mid, available))
+    reserve = min(_ceil100(need_mid), float(math.floor(available / 100) * 100))  # round the need up, but never above what is free
     if reserve > 0:
         step("reserve", "reserve", f"先预留{n(reserve)}元：只是把钱留出来，不转出去",
              reserve, classify("reserve", amount=reserve, balance=acct.balance, **kw))

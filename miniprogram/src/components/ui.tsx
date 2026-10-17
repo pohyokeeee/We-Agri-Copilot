@@ -21,7 +21,7 @@ export function TierChip({ tier }: { tier: Tier }) {
   return <Text className={`chip chip-${tier}`}>{TIER[tier][0]} {TIER[tier][1]}</Text>
 }
 
-const STATE = { pending: ['○', '待办'], done: ['✓', '已完成'], undone: ['↺', '已撤销'] } as const
+const STATE = { pending: ['○', '待办'], waiting: ['…', '等您确认'], done: ['✓', '已完成'], undone: ['↺', '已撤销'], failed: ['✕', '没办成'] } as const
 export type StepState = keyof typeof STATE
 export function StateChip({ state }: { state: StepState }) {
   return <Text className={`chip chip-${state}`}>{STATE[state][0]} {STATE[state][1]}</Text>

@@ -1,6 +1,7 @@
 import { Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
+import AgentPanel from '../../components/AgentPanel'
 import ComparisonCard from '../../components/ComparisonCard'
 import FlagsCard from '../../components/FlagsCard'
 import ForecastCard from '../../components/ForecastCard'
@@ -145,6 +146,8 @@ export default function Chat() {
         </Dismissable>
       )}
       {heard && <Text className='card enter-down'>{heard}</Text>}
+
+      <AgentPanel />
 
       <Text className='card-q'>办一件事</Text>
       <PayFlow />

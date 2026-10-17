@@ -88,8 +88,10 @@ class BankSchedule(SQLModel, table=True):
     payee_id: int = Field(foreign_key="bank_payee.id")
     amount: float
     run_on: date
-    condition: str = ""  # e.g. "balance >= 20000"; evaluated by deterministic code
+    condition: str = ""  # e.g. "on_delivery"; evaluated by deterministic code
     status: str = "scheduled"  # scheduled | cancelled | done
+    batch_id: str = ""  # schedules created together are cancelled together
+    purpose: str = ""
 
 
 class BankProduct(SQLModel, table=True):

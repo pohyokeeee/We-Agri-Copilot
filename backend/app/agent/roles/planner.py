@@ -7,7 +7,12 @@ ALLOWED_TOOLS = frozenset({
 })
 
 
-def plan(transcript: str, session_id: str) -> Dag:
-    """Ask the planner LLM (QWEN_PLANNER) for a Dag, then validate every node.tool against the allow-lists."""
-    # TODO: S6 "下个月要收蜂蜜了，帮我准备一下" -> forecast -> reserve -> supplier payments -> financing
-    raise NotImplementedError
+def plan(transcript: str, session_id: str) -> Dag | str:
+    """A Dag for a known request, else one clarifying question.
+
+    Today: the deterministic templates in planner_mock. With the LLM: ask QWEN_PLANNER for a Dag, run tools.validate on it,
+    and on any failure or invalid Dag fall back to planner_mock.plan(transcript).
+    """
+    from app.agent import planner_mock
+
+    return planner_mock.plan(transcript)

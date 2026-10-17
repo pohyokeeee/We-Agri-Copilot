@@ -3,12 +3,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 
 from app import trace
+from app.agent.router import router as agent_router
 from app.analysis.router import router as analysis_router
 from app.audit.router import audit_router, trace_router
 from app.db import init_db
 from app.mockbank.router import router as bank_router
 from app.mockbank.cosign import router as cosign_router
 from app.mockbank.financing import router as financing_router
+from app.mockbank.schedules import router as schedules_router
 
 
 @asynccontextmanager
@@ -18,11 +20,13 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="We-Agri-Copilot 元农民 (Mock Bank — simulated accounts)", lifespan=lifespan)
+app.include_router(agent_router)
 app.include_router(trace_router)
 app.include_router(audit_router)
 app.include_router(bank_router)
 app.include_router(cosign_router)
 app.include_router(financing_router)
+app.include_router(schedules_router)
 app.include_router(analysis_router)
 
 

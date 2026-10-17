@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel
 
 from app import clock
+from app.config import settings
 from app.db import get_session, make_engine
 from app.main import app
 from app.mockbank.service import hash_pin
@@ -17,6 +18,15 @@ REAL_NOW = clock.now  # the unpatched demo-clock function, for tests of the cloc
 @pytest.fixture(autouse=True)
 def fixed_clock(monkeypatch):
     monkeypatch.setattr(clock, "now", lambda: NOON)
+
+
+@pytest.fixture(autouse=True)
+def isolated_checkpoints(tmp_path, monkeypatch):
+    """Each test gets its own LangGraph checkpoint database (plan ids repeat between tests)."""
+    from app.agent import graph
+
+    monkeypatch.setattr(settings, "checkpoint_db", str(tmp_path / "checkpoints.db"))
+    graph._savers.clear()
 
 
 @pytest.fixture

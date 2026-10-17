@@ -102,6 +102,10 @@ def summary_zh(s: Session, cust: BankCustomer, ap: BankApproval) -> str:
         payee = s.get(BankPayee, p["payee_id"])
         tail = f"，用途：{p['purpose']}" if p.get("purpose") else ""
         return f"{_short(cust)}要转 {amount_digits(p['amount'])} 元（{amount_zh(p['amount'])}）给{payee.name if payee else '未知收款人'}{tail}"
+    if ap.action == "schedule":
+        k = len({i["payee_id"] for i in p["items"]})
+        total = sum(i["amount"] * i["times"] for i in p["items"])
+        return f"{_short(cust)}要安排送货时付款给{k}家供应商，合计 {amount_digits(total)} 元（{amount_zh(total)}），现在不转钱，送货时才转"
     if ap.action == "financing_submit":
         app = s.get(FinancingApplication, p["application_id"])
         product = s.get(BankProduct, app.product_id)
@@ -114,7 +118,7 @@ def summary_zh(s: Session, cust: BankCustomer, ap: BankApproval) -> str:
 
 # ---------- audit: every step records tiers, reasons, method/result and balances ----------
 def audit_step(s: Session, event: str, customer_id: int, *, ap: BankApproval | None = None, tier: dict | None = None,
-               method: str = "", result: str = "", balance_before: float | None = None,
+               actor: str = "mockbank", method: str = "", result: str = "", balance_before: float | None = None,
                balance_after: float | None = None, **extra) -> None:
     acct = s.exec(select(BankAccount).where(BankAccount.customer_id == customer_id)).first()
     before = balance_before if balance_before is not None else (acct.balance if acct else None)
@@ -125,7 +129,7 @@ def audit_step(s: Session, event: str, customer_id: int, *, ap: BankApproval | N
     else:
         base = final, reasons = "", []
         base, final = "", ""
-    chain.append(s, "mockbank", event, {
+    chain.append(s, actor, event, {
         "customer_id": customer_id, "approval_id": ap.id if ap else None, "tier_base": base, "tier_final": final,
         "reasons": reasons, "method": method, "result": result, "balance_before": before,
         "balance_after": before if balance_after is None else balance_after, **extra})
@@ -195,6 +199,30 @@ def expire_stale(s: Session) -> None:
                 audit_step(s, "cosign_expired", cr.customer_id, ap=ap, method="cosign", result="expired", cosign_request_id=cr.id)
 
 
+def check_token(s: Session, cust: BankCustomer, action: str, payload: dict, token: str, tier: dict | None = None,
+                spend: bool = True) -> BankApproval:
+    """The one place a token is judged: granted, this customer, this exact request, not used, not expired. A refusal is
+    audited and committed, then raises 403. spend=False only checks (the agent asks before it resumes a plan)."""
+    if action != "unlock":
+        ensure_unlocked(cust)
+    ap = s.exec(select(BankApproval).where(BankApproval.token == token)).first()
+    if ap:
+        trace.adopt(ap.trace_id)  # the execution (and any refusal) belongs to the action that was approved
+    now = clock.now()
+    why = ("unknown token" if not ap else "token already used" if ap.status == "used"
+           else "approval is not granted" if ap.status != "approved" or ap.customer_id != cust.id
+           else "request differs from what was approved" if ap.action_hash != action_hash(cust.id, action, payload) or ap.action != action
+           else "token expired" if now - ap.token_at > TOKEN_TTL else "")
+    if why:
+        audit_step(s, "token_rejected", cust.id, ap=ap, tier=tier, method="token", result=f"rejected: {why}", action=action)
+        s.commit()  # keep the audit row although the request fails
+        raise HTTPException(403, f"approval token rejected: {why}")
+    if spend:
+        ap.status = "used"
+        s.add(ap)
+    return ap
+
+
 def gate(
     s: Session, cust: BankCustomer, action: str, amount: float, payload: dict,
     token: str | None, **tier_kwargs,
@@ -207,20 +235,7 @@ def gate(
     tier = classify(action, now=now, amount=amount, protection_mode=cust.protection_mode, **tier_kwargs)
     h = action_hash(cust.id, action, payload)
     if token:
-        ap = s.exec(select(BankApproval).where(BankApproval.token == token)).first()
-        if ap:
-            trace.adopt(ap.trace_id)  # the execution (and any refusal) belongs to the action that was approved
-        why = ("unknown token" if not ap else "token already used" if ap.status == "used"
-               else "approval is not granted" if ap.status != "approved" or ap.customer_id != cust.id
-               else "request differs from what was approved" if ap.action_hash != h or ap.action != action
-               else "token expired" if now - ap.token_at > TOKEN_TTL else "")
-        if why:
-            audit_step(s, "token_rejected", cust.id, ap=ap, tier=tier, method="token", result=f"rejected: {why}", action=action)
-            s.commit()  # keep the audit row although the request fails
-            raise HTTPException(403, f"approval token rejected: {why}")
-        ap.status = "used"
-        s.add(ap)
-        return tier, None, ap
+        return tier, None, check_token(s, cust, action, payload, token, tier)
     if tier["final_tier"] == GREEN:
         return tier, None, None
     unlock = action == "unlock"  # a locked customer cannot enter a PIN: the co-signer is the only way

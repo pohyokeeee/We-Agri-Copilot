@@ -1,4 +1,4 @@
-from app.models.agent import AgentAudit, AgentPlan
+from app.models.agent import AgentAudit, AgentHandover, AgentPlan
 from app.models.bank import (
     BankAccount,
     BankApproval,
@@ -15,6 +15,6 @@ from app.models.bank import (
 from app.models.rules import CalendarEntry, RulePolicy, RuleTax
 
 __all__ = [
-    "AgentAudit", "AgentPlan", "CalendarEntry", "BankAccount", "BankApproval", "BankCustomer", "BankPayee",
+    "AgentAudit", "AgentHandover", "AgentPlan", "CalendarEntry", "BankAccount", "BankApproval", "BankCustomer", "BankPayee",
     "BankProduct", "BankReserve", "BankSchedule", "BankTxn", "CosignRequest", "FinancingApplication", "PlatformOrder", "RulePolicy", "RuleTax",
 ]

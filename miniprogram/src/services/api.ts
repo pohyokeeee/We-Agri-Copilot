@@ -181,7 +181,35 @@ export interface TraceStep {
 export interface TraceDetail { trace_id: string; summary_zh: string; status: string; started_at: string; steps: TraceStep[] }
 export interface AuditVerify { ok: boolean; rows_checked: number; first_broken_id: number | null }
 
+export type NodeStatus = 'pending' | 'waiting' | 'done' | 'skipped' | 'undone' | 'dropped' | 'failed' | 'blocked'
+export interface AgentNode {
+  id: string
+  label_zh: string
+  status: NodeStatus
+  status_zh: string
+  tier: TierName // the tier engine's answer, not the plan's
+  summary_zh: string
+  error: string
+}
+export interface AgentApproval { approval_id: number; status: string; next: Approval['next']; tier: TierName; reasons_zh: string[] }
+export interface AgentView {
+  status: 'running' | 'waiting' | 'paused' | 'done' | 'failed' | 'cancelled' | 'handed_over' | 'rejected' | 'question'
+  paused?: boolean
+  question_zh?: string
+  notice_zh?: string
+  utterance?: string
+  trace_id?: string
+  handover_id?: number | null
+  nodes: AgentNode[]
+  pending: { node_id: string; readback_zh: string; approval: AgentApproval } | null
+}
+export type AgentCommand = '等一下' | '继续' | '贷款先不要' | '算了' | '找人工'
+
 export const api = {
+  agentMessage: (sessionId: string, text: string) => request<AgentView>('POST', '/agent/message', { session_id: sessionId, text }),
+  agentApprove: (sessionId: string, nodeId: string, token: string) =>
+    request<AgentView>('POST', '/agent/approve', { session_id: sessionId, node_id: nodeId, token }),
+  agentCommand: (sessionId: string, command: AgentCommand) => request<AgentView>('POST', '/agent/command', { session_id: sessionId, command }),
   traceRecent: (limit = 30) => request<TraceSummary[]>('GET', `/trace/recent?limit=${limit}`),
   trace: (id: string) => request<TraceDetail>('GET', `/trace/${encodeURIComponent(id)}`),
   auditVerify: () => request<AuditVerify>('GET', '/audit/verify'),

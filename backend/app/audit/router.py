@@ -21,15 +21,19 @@ EVENT_ZH = {
     "orders_imported": "导入订单", "income_reconciled": "对账", "income_statement": "收入报表", "compliance_checked": "合规检查",
     "structures_compared": "经营方式对比", "procurement_forecast": "采购预测", "policy_match": "补贴匹配",
     "financing_costs_viewed": "借款成本", "application_drafted": "贷款草稿", "application_submitted": "贷款申请已发出",
-    "application_withdrawn": "贷款申请已撤回", "seeded": "演示数据",
+    "application_withdrawn": "贷款申请已撤回", "seeded": "演示数据", "schedules_created": "已安排送货时付款",
+    "schedules_cancelled": "已取消付款安排", "agent_plan_created": "制定计划", "agent_plan_rejected": "计划被拒绝",
+    "agent_node_done": "完成一步", "agent_node_waiting": "等您确认", "agent_node_failed": "这一步没办成",
+    "agent_undo": "撤销一步", "agent_command": "收到指令", "agent_handover": "转人工", "agent_plan_done": "全部办完",
 }
 ACTION_ZH = {"transfer": "转账", "reserve": "预留", "unlock": "解除安全锁", "financing_prefill": "预填贷款申请",
              "financing_submit": "发出贷款申请"}
 # the status a trace shows is decided by its LAST event
 DONE = {"transfer_executed", "reserve_created", "reserve_released", "locked", "unlocked", "orders_imported", "income_reconciled",
         "income_statement", "compliance_checked", "structures_compared", "procurement_forecast", "policy_match",
-        "financing_costs_viewed", "application_drafted", "application_submitted", "application_withdrawn", "transfer_plan", "seeded"}
-STATUS_ZH = {"token_rejected": "被拒绝", "cosign_declined": "家人拒绝", "cancelled": "已取消", "cosign_expired": "已超时",
+        "financing_costs_viewed", "application_drafted", "application_submitted", "application_withdrawn", "transfer_plan", "seeded",
+        "schedules_created", "schedules_cancelled", "agent_plan_done", "agent_undo", "agent_node_done"}
+STATUS_ZH = {"agent_plan_rejected": "被拒绝", "agent_handover": "已转人工", "agent_node_failed": "出错了", "token_rejected": "被拒绝", "cosign_declined": "家人拒绝", "cancelled": "已取消", "cosign_expired": "已超时",
              "cosign_approved": "已批准，待执行", "pin_failed": "密码错误"}
 SHOWN_ELSEWHERE = {"trace_id", "endpoint", "wording_check", "balance_before", "balance_after", "tier_base", "tier_final", "reasons",
                    "method", "result", "utterance", "dag"}
