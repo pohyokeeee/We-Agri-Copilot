@@ -3,11 +3,23 @@ import Taro from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import ComparisonCard from '../../components/ComparisonCard'
 import FlagsCard from '../../components/FlagsCard'
+import ForecastCard from '../../components/ForecastCard'
 import PlanCard from '../../components/PlanCard'
 import ReadBackCard from '../../components/ReadBackCard'
 import SupportCard from '../../components/SupportCard'
-import { Compliance, Structures, api } from '../../services/api'
+import { Compliance, Forecast, Structures, api } from '../../services/api'
 import { mockPlan, mockReadBack, mockSupport } from '../../mock'
+
+type Ask = 'compliance' | 'forecast'
+
+function ServerError() {
+  return (
+    <View className='card'>
+      <Text className='card-title'>现在连不上服务器</Text>
+      <Text>请确认后台已经打开，然后再点一次。</Text>
+    </View>
+  )
+}
 
 const recorder = Taro.getRecorderManager()
 const audio = Taro.createInnerAudioContext()
@@ -34,26 +46,32 @@ export default function Chat() {
   const [recording, setRecording] = useState(false)
   const [heard, setHeard] = useState('')
   const [micHelp, setMicHelp] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
+  const [busy, setBusy] = useState<Ask | ''>('') // which question is loading
+  const [failed, setFailed] = useState<Ask | ''>('') // which question could not reach the backend
   const [compliance, setCompliance] = useState<Compliance | null>(null)
   const [structures, setStructures] = useState<Structures | null>(null)
+  const [forecast, setForecast] = useState<Forecast | null>(null)
 
-  // Voice comes later: for now a button asks the same question. Compliance first, then the comparison.
-  const askCompliance = async () => {
-    setLoading(true)
-    setError(false)
+  // Voice comes later: for now buttons ask the questions.
+  const ask = async (kind: Ask, run: () => Promise<void>) => {
+    if (busy) return
+    setBusy(kind)
+    setFailed('')
     try {
-      const c = await api.compliance()
-      const s = await api.structures(c.period)
-      setCompliance(c)
-      setStructures(s)
+      await run()
     } catch {
-      setError(true)
+      setFailed(kind)
     } finally {
-      setLoading(false)
+      setBusy('')
     }
   }
+  const askCompliance = () => ask('compliance', async () => {
+    const c = await api.compliance() // compliance first, then the comparison for the same period
+    const s = await api.structures(c.period)
+    setCompliance(c)
+    setStructures(s)
+  })
+  const askForecast = () => ask('forecast', async () => setForecast(await api.procurementForecast()))
   const answer = useRef<(ok: boolean) => void>()
   // large-font explanation (native modals ignore our font size)
   const explain = () => new Promise<boolean>((res) => { answer.current = res; setMicHelp(true) })
@@ -103,17 +121,17 @@ export default function Chat() {
 
       {/* static mock cards until the agent exists */}
       <PlanCard title={mockPlan.title} steps={mockPlan.steps} />
-      <View className='btn btn-primary' onClick={loading ? undefined : askCompliance}>
-        <Text>{loading ? '正在查，请稍等…' : '我这样卖蜂蜜合规吗？'}</Text>
+      <View className='btn btn-primary' onClick={askCompliance}>
+        <Text>{busy === 'compliance' ? '正在查，请稍等…' : '我这样卖蜂蜜合规吗？'}</Text>
       </View>
-      {error && (
-        <View className='card'>
-          <Text className='card-title'>现在连不上服务器</Text>
-          <Text>请确认后台已经打开，然后再点一次。</Text>
-        </View>
-      )}
+      {failed === 'compliance' && <ServerError />}
       {compliance && <FlagsCard data={compliance} />}
       {structures && <ComparisonCard data={structures} />}
+      <View className='btn btn-primary' onClick={askForecast}>
+        <Text>{busy === 'forecast' ? '正在算，请稍等…' : '收蜂蜜的钱够不够？'}</Text>
+      </View>
+      {failed === 'forecast' && <ServerError />}
+      {forecast && <ForecastCard data={forecast} />}
       <SupportCard {...mockSupport} />
       <ReadBackCard {...mockReadBack} />
 

@@ -30,3 +30,13 @@ class RulePolicy(SQLModel, table=True):
     citation_url: str = "TODO"
     last_checked: date | None = None
     simulated: bool = True
+
+
+class CalendarEntry(SQLModel, table=True):
+    """When a recurring purchase happens. typical_purchase is the bank_txn.category its history is read from."""
+    __tablename__ = "calendar"
+    id: int | None = Field(default=None, primary_key=True)
+    activity: str
+    month_from: int  # 1-12
+    month_to: int  # >= month_from (no year wrap)
+    typical_purchase: str

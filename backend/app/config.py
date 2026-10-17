@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     qwen_planner: str = "qwen-plus"
     qwen_classifier: str = "qwen-flash"
     llm_mock: bool = False
+    # demo clock: "today" for all date logic (Asia/Shanghai); empty = real date
+    demo_today: str = "2026-07-25"
     llm_cache_dir: str = (BACKEND_DIR / "data" / "llm_cache").as_posix()
 
 

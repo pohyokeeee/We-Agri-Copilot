@@ -18,4 +18,4 @@ def test_seed_is_idempotent_and_consistent():
         txns = s.exec(select(BankTxn)).all()
         net = sum(t.amount if t.direction == "credit" else -t.amount for t in txns)
         assert abs(acct.balance - (a["opening"] + net)) < 0.01 and acct.balance > 0
-        assert len([t for t in txns if t.income_class == "pension"]) == 12
+        assert len([t for t in txns if t.income_class == "pension"]) == 13

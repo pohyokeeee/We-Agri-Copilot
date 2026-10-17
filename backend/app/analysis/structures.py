@@ -25,7 +25,7 @@ RULE_IDS = [
 
 def compare_structures(s: Session, customer_id: int, period: str | None = None) -> dict:
     """Table rows vat / income_tax / paperwork x A-D; cell = {text_zh, value?, rule_ids, status}. Audited; caller commits."""
-    period = period or latest_period(s)
+    period = period or latest_period()
     start, end = period_bounds(period)
     rules = load_rules(s, RULE_IDS)
     q = reconcile_range(s, customer_id, start, end)

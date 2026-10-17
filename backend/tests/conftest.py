@@ -10,7 +10,8 @@ from app.main import app
 from app.mockbank.service import hash_pin
 from app.models import BankAccount, BankCustomer, BankPayee
 
-NOON = datetime(2026, 7, 10, 12, 0)
+NOON = datetime(2026, 7, 25, 12, 0)  # = default DEMO_TODAY
+REAL_NOW = clock.now  # the unpatched demo-clock function, for tests of the clock itself
 
 
 @pytest.fixture(autouse=True)

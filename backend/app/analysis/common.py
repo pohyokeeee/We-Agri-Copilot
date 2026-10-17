@@ -1,9 +1,10 @@
 import re
 from datetime import datetime
 
-from sqlmodel import Session, func, select
+from sqlmodel import Session, select
 
-from app.models import PlatformOrder, RuleTax
+from app import clock
+from app.models import RuleTax
 
 
 def period_bounds(period: str) -> tuple[datetime, datetime]:
@@ -20,11 +21,12 @@ def shift_months(d: datetime, n: int) -> datetime:
     return datetime(total // 12, total % 12 + 1, 1)
 
 
-def latest_period(s: Session) -> str:
-    last = s.exec(select(func.max(PlatformOrder.ts))).one()
-    if last is None:
-        raise ValueError("no platform orders imported yet")
-    return f"{last.year}-Q{(last.month - 1) // 3 + 1}"
+def latest_period() -> str:
+    """Last completed quarter before the demo clock's today (the current quarter is still open)."""
+    today = clock.today()
+    this_q = datetime(today.year, 3 * ((today.month - 1) // 3) + 1, 1)
+    prev = shift_months(this_q, -3)
+    return f"{prev.year}-Q{(prev.month - 1) // 3 + 1}"
 
 
 def load_rules(s: Session, ids: list[str]) -> dict[str, RuleTax]:

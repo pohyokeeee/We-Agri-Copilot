@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.analysis.compliance import check_compliance
+from app.analysis.forecast import forecast_procurement
 from app.analysis.structures import compare_structures
 from app.db import get_session
 
@@ -33,3 +34,18 @@ def compliance(body: AnalysisIn, s: Session = Depends(get_session)):
 @router.post("/structures")
 def structures(body: AnalysisIn, s: Session = Depends(get_session)):
     return run(compare_structures, body, s)
+
+
+class ForecastIn(BaseModel):
+    customer_id: int = 1
+
+
+@router.post("/procurement-forecast")
+def procurement_forecast(body: ForecastIn, s: Session = Depends(get_session)):
+    """Range forecast + cash gap + a suggested plan. Executes nothing."""
+    try:
+        result = forecast_procurement(s, body.customer_id)
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    s.commit()  # persists the audit row
+    return result

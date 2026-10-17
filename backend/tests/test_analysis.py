@@ -60,7 +60,7 @@ def test_missed_payout_and_needs_confirmation(seeded):
 def test_statement(seeded):
     client, engine = seeded
     r = client.get("/bank/income/statement", params={"year": 2026}).json()
-    assert len(r["months"]) == 6 and r["pension"] == 246 * 6
+    assert len(r["months"]) == 7 and r["pension"] == 246 * 7  # Jul 2026 up to the demo today
     assert r["totals"]["total"] == pytest.approx(sum(m["total"] for m in r["months"]), abs=0.02)
     assert r["totals"]["needs_confirmation"] == 0
     assert events(engine, "income_statement")

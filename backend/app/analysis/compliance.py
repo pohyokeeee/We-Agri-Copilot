@@ -20,7 +20,7 @@ def in_effect(rule, start, end) -> bool:
 def check_compliance(s: Session, customer_id: int, period: str | None = None) -> dict:
     """3 flags (4 when products need confirming): resale share, reconciliation gap, VAT threshold.
     Audited; caller commits."""
-    period = period or latest_period(s)
+    period = period or latest_period()
     start, end = period_bounds(period)
     rules = load_rules(s, RULE_IDS)
     q = reconcile_range(s, customer_id, start, end)

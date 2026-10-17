@@ -10,9 +10,9 @@ from app.models.bank import (
     BankTxn,
     PlatformOrder,
 )
-from app.models.rules import RulePolicy, RuleTax
+from app.models.rules import CalendarEntry, RulePolicy, RuleTax
 
 __all__ = [
-    "AgentAudit", "AgentPlan", "BankAccount", "BankApproval", "BankCustomer", "BankPayee",
+    "AgentAudit", "AgentPlan", "CalendarEntry", "BankAccount", "BankApproval", "BankCustomer", "BankPayee",
     "BankProduct", "BankReserve", "BankSchedule", "BankTxn", "PlatformOrder", "RulePolicy", "RuleTax",
 ]

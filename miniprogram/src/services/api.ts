@@ -57,6 +57,41 @@ export interface Statement {
   payouts_received: number
 }
 
+export interface PlanStep {
+  id: string
+  kind: string
+  text_zh: string
+  amount: number
+  tier: 'green' | 'yellow' | 'red'
+  marker: string
+  reasons_zh: string[]
+  requires_cosigner: boolean
+}
+export interface FinancingOption {
+  product_id: number
+  name: string
+  amount: number
+  interest: number
+  fee: number
+  total_cost: number
+  total_repay: number
+  text_zh: string
+}
+export interface Forecast {
+  today: string
+  next_purchases: { activity: string; window_start: string; window_end: string; days_until: number }[]
+  amount_low?: number
+  amount_high?: number
+  cash_available_low?: number
+  cash_available_high?: number
+  gap_low?: number
+  gap_high?: number
+  gap_expected?: number
+  assumptions: string[]
+  plan: { steps: PlanStep[]; financing: FinancingOption[]; executed: boolean }
+  disclaimer: string
+}
+
 export const api = {
   balance: () => request<{ balance: number; reserved: number; available: number }>('GET', '/bank/balance'),
   pendingForCosigner: (cosignerId: number) => request<Approval[]>('GET', `/bank/approvals?cosigner_id=${cosignerId}`),
@@ -65,5 +100,6 @@ export const api = {
   statement: (year: number) => request<Statement>('GET', `/bank/income/statement?year=${year}`),
   reconcile: (period: string) => request<Reconcile>('GET', `/bank/income/reconcile?period=${period}`),
   compliance: (period?: string) => request<Compliance>('POST', '/analysis/compliance', period ? { period } : {}),
+  procurementForecast: () => request<Forecast>('POST', '/analysis/procurement-forecast', {}),
   structures: (period?: string) => request<Structures>('POST', '/analysis/structures', period ? { period } : {}),
 }
