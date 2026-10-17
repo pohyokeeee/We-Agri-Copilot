@@ -1,0 +1,122 @@
+@import './styles/tokens.scss';
+
+page {
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  letter-spacing: var(--ls-body);
+  line-height: var(--lh-body);
+  color: var(--ink);
+  background: var(--bg);
+}
+
+// ---------- layout ----------
+.screen { min-height: 100vh; }
+.content { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
+.pt { padding-top: calc(var(--header-h) + var(--sp-3)); }
+.pt-tall { padding-top: calc(var(--header-h-tall) + var(--sp-3)); }
+.has-bar { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
+.stack { display: flex; flex-direction: column; gap: var(--sp-3); }
+.row { display: flex; flex-direction: row; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.grow { flex: 1; }
+
+// ---------- materials: translucent chrome, solid fallback. Never stacked on each other. ----------
+.header, .bar { position: fixed; left: 0; right: 0; z-index: 10; padding: 0 var(--sp-4); }
+.blur { background: var(--glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
+.solid { background: var(--surface); }
+.header {
+  top: 0; height: var(--header-h);
+  display: flex; flex-direction: column; justify-content: center; gap: 0;
+}
+.header.tall { height: var(--header-h-tall); }
+// scroll-edge fade instead of a hard divider under the header / above the bar
+.header::after, .bar::before {
+  content: ''; position: absolute; left: 0; right: 0; height: var(--sp-4); pointer-events: none;
+}
+.header::after { top: 100%; background: linear-gradient(var(--bg), rgba(245, 245, 247, 0)); }
+.bar { bottom: 0; height: calc(var(--bar-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2); }
+.bar::before { bottom: 100%; background: linear-gradient(rgba(245, 245, 247, 0), var(--bg)); }
+.h-title { font-size: var(--fs-title); letter-spacing: var(--ls-title); line-height: var(--lh-title); font-weight: 700; }
+.h-sub { font-size: var(--fs-small); letter-spacing: var(--ls-small); line-height: var(--lh-small); color: var(--ink-2); }
+
+// ---------- type ----------
+.small { font-size: var(--fs-small); letter-spacing: var(--ls-small); line-height: var(--lh-small); }
+.muted { color: var(--ink-2); }
+.card-q { font-size: var(--fs-small); letter-spacing: var(--ls-small); color: var(--ink-2); font-weight: 600; }
+.card-title { font-size: var(--fs-title); letter-spacing: var(--ls-title); line-height: var(--lh-title); font-weight: 700; }
+.figure { font-size: var(--fs-figure); letter-spacing: var(--ls-figure); line-height: var(--lh-figure); font-weight: 700; }
+.number { font-size: var(--fs-number); letter-spacing: var(--ls-number); line-height: var(--lh-number); font-weight: 700; }
+.unit { font-size: var(--fs-body); font-weight: 600; margin-left: var(--sp-1); }
+.mono { font-family: var(--font-mono); letter-spacing: 0; word-break: break-all; }
+.note { font-size: var(--fs-small); letter-spacing: var(--ls-small); color: var(--ink-2); }
+
+// ---------- cards ----------
+.card { background: var(--surface); border-radius: var(--r-lg); padding: var(--sp-4); box-shadow: var(--shadow-1);
+  display: flex; flex-direction: column; gap: var(--sp-3); }
+.card.flat { box-shadow: none; background: transparent; padding: 0; }
+.inset { background: var(--bg); border-radius: var(--r-md); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-1); }
+.tappable { min-height: var(--tap-min); }
+
+// ---------- press feedback: instant, on touch-down (hover-start-time 0) ----------
+.btn, .tappable, .ptt { transition: transform var(--dur-press) ease-out, opacity var(--dur-press) ease-out; }
+.pressed { transform: scale(var(--press-scale)); opacity: var(--press-dim); }
+
+// ---------- buttons ----------
+.btn { min-height: var(--tap-min); min-width: var(--tap-min); padding: 0 var(--sp-5); border-radius: var(--r-md);
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: var(--fs-body); font-weight: 700; line-height: var(--lh-body); }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-secondary { background: var(--surface); color: var(--accent); box-shadow: inset 0 0 0 4rpx var(--accent); }
+.btn-quiet { background: transparent; color: var(--accent); padding: 0 var(--sp-3); }
+.btn-wide { width: 100%; box-sizing: border-box; }
+
+// ---------- chips: tier = shape + word + colour ----------
+.chip { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 64rpx; padding: 0 var(--sp-3);
+  border-radius: var(--r-pill); font-size: var(--fs-small); letter-spacing: var(--ls-small); font-weight: 700; white-space: nowrap; }
+.chip-green { color: var(--tier-green); background: var(--tier-green-bg); }
+.chip-yellow { color: var(--tier-yellow); background: var(--tier-yellow-bg); }
+.chip-red { color: var(--tier-red); background: var(--tier-red-bg); }
+.chip-pending { color: var(--ink-2); background: var(--bg); }
+.chip-done { color: var(--tier-green); background: var(--tier-green-bg); }
+.chip-undone { color: var(--ink-2); background: var(--bg); text-decoration: line-through; }
+.chip-recall { color: var(--tier-yellow); background: var(--tier-yellow-bg); }
+
+// ---------- motion ----------
+// A card enters from the side its trigger is on and leaves the same way. Only transform + opacity move.
+@keyframes enter-down { from { transform: translateY(calc(var(--slide) * -1)); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes enter-up { from { transform: translateY(var(--slide)); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes leave-down { from { transform: none; opacity: 1; } to { transform: translateY(calc(var(--slide) * -1)); opacity: 0; } }
+@keyframes leave-up { from { transform: none; opacity: 1; } to { transform: translateY(var(--slide)); opacity: 0; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@keyframes ring { from { transform: scale(1); opacity: 0.5; } to { transform: scale(1.5); opacity: 0; } }
+
+.enter-down { animation: enter-down var(--dur) var(--ease) both; }
+.enter-up { animation: enter-up var(--dur) var(--ease) both; }
+.leave-down { animation: leave-down var(--dur) var(--ease) both; }
+.leave-up { animation: leave-up var(--dur) var(--ease) both; }
+// reduced motion: no travel, a short cross-fade instead
+.rm .enter-down, .rm .enter-up { animation: fade-in var(--dur-fade) linear both; }
+.rm .leave-down, .rm .leave-up { animation: fade-out var(--dur-fade) linear both; }
+.rm .btn, .rm .tappable, .rm .ptt { transition: opacity var(--dur-press) linear; }
+.rm .pressed { transform: none; }
+
+// ---------- skeleton (never a spinner) ----------
+.sk { background: var(--skeleton); border-radius: var(--r-sm); animation: pulse var(--dur-loop) ease-in-out infinite; }
+.sk-line { height: var(--sp-4); }
+.sk-short { width: 40%; }
+.sk-block { height: var(--sp-6); width: 60%; }
+.rm .sk { animation: none; }
+
+// ---------- push-to-talk ----------
+.ptt-wrap { position: relative; width: 176rpx; height: 176rpx; display: flex; align-items: center; justify-content: center; }
+.ptt { width: 176rpx; height: 176rpx; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink);
+  display: flex; align-items: center; justify-content: center; font-size: var(--fs-small); font-weight: 700; text-align: center; z-index: 1; }
+.ptt.on { transform: scale(1.08); background: var(--tier-red); }
+.ring { position: absolute; width: 176rpx; height: 176rpx; border-radius: var(--r-pill); background: var(--tier-red); opacity: 0; }
+.ring.on { animation: ring var(--dur-loop) var(--ease) infinite; }
+.rm .ring.on { animation: none; opacity: 0.25; }
+.input { flex: 1; min-height: var(--tap-min); padding: 0 var(--sp-3); background: var(--surface); border-radius: var(--r-md);
+  font-size: var(--fs-body); }
+.bar-row { width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: var(--sp-3); box-sizing: border-box; }

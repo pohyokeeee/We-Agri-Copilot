@@ -89,6 +89,20 @@ Mini Program is not run in Docker.
 
 Age-friendly (适老化) defaults live in `src/app.css`: 20px+ base font, high contrast, 48px minimum tap targets.
 
+## Mini Program design tokens
+
+All styling reads `miniprogram/src/styles/tokens.scss` (CSS variables on `page`). Nothing else hard-codes a size, colour or timing.
+
+- **Type:** system font stack; scale small 18px / body 20px / title 26px / figure 28px / number 36px, with size-specific
+  tracking (large text slightly negative, body 0) and inverse leading. Floors for older users: text >= 18px, key numbers >= 28px.
+- **Space and shape:** spacing `--sp-1..6` and radii `--r-*` in rpx (8px grid); tap targets `--tap-min` = 48px.
+- **Colour:** one calm accent. Tiers are shape + word + colour, never colour alone: ● 直接做 / ▲ 要您确认 / ■ 要您和家人确认.
+- **Motion:** transform + opacity only, one curve (`--ease`, no overshoot), 300ms enter/leave, 100ms press feedback.
+  Cards enter from the side of their trigger and leave the same way. `reducedMotion` (`utils/settings.ts`, default off,
+  toggle at the bottom of the chat page) swaps slides for a 150ms cross-fade.
+- **Materials:** translucent header and bottom bar with blur, solid on platforms where `backdrop-filter` is not trusted
+  (`utils/device.ts`). Header and bar never overlap, so translucency is never stacked.
+
 ## Status
 
 Implemented and tested: config/db/health, all tables, audit chain + CLI, tier engine, mock bank API

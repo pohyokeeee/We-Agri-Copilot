@@ -1,4 +1,4 @@
-import { Text, View } from '@tarojs/components'
+import { Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import ComparisonCard from '../../components/ComparisonCard'
@@ -6,20 +6,14 @@ import FlagsCard from '../../components/FlagsCard'
 import ForecastCard from '../../components/ForecastCard'
 import PlanCard from '../../components/PlanCard'
 import ReadBackCard from '../../components/ReadBackCard'
+import Screen from '../../components/Screen'
 import SupportCard from '../../components/SupportCard'
+import { Dismissable, ErrorCard, Skeleton, Tap, useDelayed } from '../../components/ui'
 import { Compliance, Forecast, Structures, api } from '../../services/api'
 import { mockPlan, mockReadBack, mockSupport } from '../../mock'
+import { getSettings, setReducedMotion } from '../../utils/settings'
 
 type Ask = 'compliance' | 'forecast'
-
-function ServerError() {
-  return (
-    <View className='card'>
-      <Text className='card-title'>现在连不上服务器</Text>
-      <Text>请确认后台已经打开，然后再点一次。</Text>
-    </View>
-  )
-}
 
 const recorder = Taro.getRecorderManager()
 const audio = Taro.createInnerAudioContext()
@@ -46,11 +40,15 @@ export default function Chat() {
   const [recording, setRecording] = useState(false)
   const [heard, setHeard] = useState('')
   const [micHelp, setMicHelp] = useState(false)
+  const [typing, setTyping] = useState(false)
+  const [text, setText] = useState('')
+  const [reduced, setReduced] = useState(getSettings().reducedMotion)
   const [busy, setBusy] = useState<Ask | ''>('') // which question is loading
   const [failed, setFailed] = useState<Ask | ''>('') // which question could not reach the backend
   const [compliance, setCompliance] = useState<Compliance | null>(null)
   const [structures, setStructures] = useState<Structures | null>(null)
   const [forecast, setForecast] = useState<Forecast | null>(null)
+  const slow = { compliance: useDelayed(busy === 'compliance'), forecast: useDelayed(busy === 'forecast') }
 
   // Voice comes later: for now buttons ask the questions.
   const ask = async (kind: Ask, run: () => Promise<void>) => {
@@ -72,6 +70,7 @@ export default function Chat() {
     setStructures(s)
   })
   const askForecast = () => ask('forecast', async () => setForecast(await api.procurementForecast()))
+
   const answer = useRef<(ok: boolean) => void>()
   // large-font explanation (native modals ignore our font size)
   const explain = () => new Promise<boolean>((res) => { answer.current = res; setMicHelp(true) })
@@ -95,58 +94,77 @@ export default function Chat() {
     recorder.start({ format: 'mp3', duration: 60000 })
   }
   const stop = () => recorder.stop()
+  const sendText = () => {
+    if (!text.trim()) return
+    setHeard(`您打的字：${text.trim()}（文字还没接上后台）`) // TODO: send to the agent once it exists
+    setText('')
+  }
 
   // TODO: backend returns a TTS url (already prefixed with the spoken AI label "元农民助手：")
   const playReply = (url?: string) => { if (url) { audio.src = url; audio.play() } }
 
-  return (
-    <View className='page'>
-      <Text className='simulated'>Mock Bank — simulated accounts · 模拟账户，数据均为虚构</Text>
-      <View className='card'>
-        <Text className='small'>元农民助手（人工智能，不是真人）</Text>
-        <Text className='card-title'>王大爷，您好。想办什么事？</Text>
-        <View className='btn' onClick={() => playReply()}><Text>🔊 再听一遍</Text></View>
-      </View>
-      {micHelp && (
-        <View className='card'>
-          <Text className='card-title'>需要使用麦克风</Text>
-          <Text>您需要对着手机说话，我才能听懂。请在设置里打开“麦克风”。</Text>
-          <View className='row'>
-            <View className='btn btn-primary' onClick={() => { setMicHelp(false); answer.current?.(true) }}><Text>去设置</Text></View>
-            <View className='btn' onClick={() => { setMicHelp(false); answer.current?.(false) }}><Text>不用了</Text></View>
+  const bar = (
+    <>
+      {typing ? (
+        <View className='bar-row'>
+          <Input className='input' value={text} placeholder='打字告诉我' confirmType='send' onInput={(e) => setText(e.detail.value)} onConfirm={sendText} />
+          <Tap kind='primary' onClick={sendText}>发送</Tap>
+        </View>
+      ) : (
+        <View className='bar-row'>
+          <View className='ptt-wrap'>
+            <View className={`ring ${recording ? 'on' : ''}`} />
+            <View className={`ptt ${recording ? 'on' : ''}`} onTouchStart={start} onTouchEnd={stop} onTouchCancel={stop}>
+              <Text>{recording ? '松开发送' : '按住说话'}</Text>
+            </View>
           </View>
         </View>
       )}
-      {heard && <Text>{heard}</Text>}
+      <Tap kind='quiet' onClick={() => setTyping(!typing)}>{typing ? '改用说话' : '改用打字'}</Tap>
+      <Text className='note'>这是信息，不是建议 · 请咨询12366</Text>
+    </>
+  )
 
-      {/* static mock cards until the agent exists */}
-      <PlanCard title={mockPlan.title} steps={mockPlan.steps} />
-      <View className='btn btn-primary' onClick={askCompliance}>
-        <Text>{busy === 'compliance' ? '正在查，请稍等…' : '我这样卖蜂蜜合规吗？'}</Text>
+  return (
+    <Screen title='元农民助手' sub='（人工智能，不是真人）' bar={bar}>
+      <Text className='note'>Mock Bank — simulated accounts · 模拟账户，数据均为虚构</Text>
+      <View className='card'>
+        <Text className='card-title'>王大爷，您好。想办什么事？</Text>
+        <Text className='muted'>按住下面的按钮说话，或者点一个常问的问题。</Text>
+        <View className='row'><Tap kind='quiet' onClick={() => playReply()}>🔊 再听一遍</Tap></View>
       </View>
-      {failed === 'compliance' && <ServerError />}
+      {micHelp && (
+        <Dismissable from='up' onDone={() => { setMicHelp(false); answer.current?.(false) }}>
+          <Text className='card-title'>需要使用麦克风</Text>
+          <Text>您需要对着手机说话，我才能听懂。请在设置里打开“麦克风”。</Text>
+          <Tap kind='primary' wide onClick={() => { setMicHelp(false); answer.current?.(true) }}>去设置</Tap>
+        </Dismissable>
+      )}
+      {heard && <Text className='card enter-down'>{heard}</Text>}
+
+      <Text className='card-q'>常问的两件事</Text>
+      <Tap kind='secondary' wide onClick={askCompliance}>{busy === 'compliance' ? '正在查…' : '我这样卖蜂蜜合规吗？'}</Tap>
+      {slow.compliance && !compliance && <Skeleton />}
+      {failed === 'compliance' && <ErrorCard onRetry={askCompliance} />}
       {compliance && <FlagsCard data={compliance} />}
       {structures && <ComparisonCard data={structures} />}
-      <View className='btn btn-primary' onClick={askForecast}>
-        <Text>{busy === 'forecast' ? '正在算，请稍等…' : '收蜂蜜的钱够不够？'}</Text>
-      </View>
-      {failed === 'forecast' && <ServerError />}
+
+      <Tap kind='secondary' wide onClick={askForecast}>{busy === 'forecast' ? '正在算…' : '收蜂蜜的钱够不够？'}</Tap>
+      {slow.forecast && !forecast && <Skeleton />}
+      {failed === 'forecast' && <ErrorCard onRetry={askForecast} />}
       {forecast && <ForecastCard data={forecast} />}
+
+      <Text className='card-q'>界面示例（演示数据）</Text>
+      <PlanCard title={mockPlan.title} steps={mockPlan.steps} />
       <SupportCard {...mockSupport} />
       <ReadBackCard {...mockReadBack} />
 
-      <View
-        className={`btn ${recording ? 'btn-danger' : 'btn-primary'}`}
-        style={{ minHeight: '160px' }}
-        onTouchStart={start}
-        onTouchEnd={stop}
-      >
-        <Text>{recording ? '松开发送' : '按住说话'}</Text>
-      </View>
+      <Text className='card-q'>其他页面</Text>
       <View className='row'>
-        <View className='btn' onClick={() => Taro.navigateTo({ url: '/pages/cosigner/index' })}><Text>家人确认页</Text></View>
-        <View className='btn' onClick={() => Taro.navigateTo({ url: '/pages/trace/index' })}><Text>评委控制台</Text></View>
+        <Tap kind='secondary' onClick={() => Taro.navigateTo({ url: '/pages/cosigner/index' })}>家人确认页</Tap>
+        <Tap kind='secondary' onClick={() => Taro.navigateTo({ url: '/pages/trace/index' })}>评委控制台</Tap>
+        <Tap kind='quiet' onClick={() => { setReducedMotion(!reduced); setReduced(!reduced) }}>{reduced ? '开启动画' : '减少动画'}</Tap>
       </View>
-    </View>
+    </Screen>
   )
 }

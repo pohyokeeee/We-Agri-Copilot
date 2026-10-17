@@ -1,0 +1,60 @@
+// Design tokens. Every other style reads these; no ad-hoc sizes, colours or timings elsewhere.
+// Units are rpx: 750rpx is the screen width, so 2rpx = 1 CSS px on a 375px phone.
+// Older-user floors (适老化): text >= 36rpx (18px), key numbers >= 56rpx (28px), tap targets >= 96rpx (48px).
+
+$ease: cubic-bezier(0.2, 0.9, 0.3, 1); // the house curve: critically damped, no overshoot
+
+page {
+  // ---- type: system fonts first (they ship optical sizing and CJK tuning) ----
+  --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  // size / tracking / leading. Bigger text: tighter tracking and tighter leading. Body: tracking 0.
+  --fs-small: 36rpx;  --ls-small: 0.01em;   --lh-small: 1.5;
+  --fs-body: 40rpx;   --ls-body: 0;         --lh-body: 1.5;
+  --fs-title: 52rpx;  --ls-title: -0.01em;  --lh-title: 1.25;
+  --fs-figure: 56rpx; --ls-figure: -0.01em; --lh-figure: 1.2;   // secondary numbers
+  --fs-number: 72rpx; --ls-number: -0.02em; --lh-number: 1.1;   // the one key number on a card
+
+  // ---- spacing ----
+  --sp-1: 8rpx;  --sp-2: 16rpx; --sp-3: 24rpx; --sp-4: 32rpx; --sp-5: 48rpx; --sp-6: 64rpx;
+
+  // ---- radii on the 8px grid (16rpx = 8px) ----
+  --r-sm: 16rpx; --r-md: 32rpx; --r-lg: 48rpx; --r-pill: 999rpx;
+
+  // ---- colour: ink on warm white, one calm accent ----
+  --ink: #111111;
+  --ink-2: #48484a;            // secondary text, still > 8:1 on white
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --line: #d1d1d6;
+  --accent: #0b5cad;           // the only accent
+  --accent-ink: #ffffff;
+  --skeleton: #e5e5ea;
+
+  // ---- tiers: always a shape + a word as well as a colour (never colour alone) ----
+  --tier-green: #146c2e;  --tier-green-bg: #e4f3e8;   // ●
+  --tier-yellow: #7a4f00; --tier-yellow-bg: #fff1cc;  // ▲
+  --tier-red: #a8201a;    --tier-red-bg: #fde7e5;     // ■
+
+  // ---- materials ----
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-blur: blur(40rpx) saturate(180%);
+  --shadow-1: 0 2rpx 16rpx rgba(0, 0, 0, 0.06);
+
+  // ---- motion: transform + opacity only ----
+  --ease: #{$ease};
+  --dur: 300ms;        // enter / leave
+  --dur-press: 100ms;  // press feedback
+  --dur-fade: 150ms;   // reduced motion cross-fade
+  --dur-loop: 1200ms;  // skeleton pulse and the recording ring
+  --slide: 24rpx;      // how far a card travels when it enters or leaves
+  --press-scale: 0.97;
+  --press-dim: 0.8;
+
+  // ---- layout ----
+  --tap-min: 96rpx;
+  --header-h: 128rpx;
+  --header-h-tall: 168rpx;
+  --bar-h: 336rpx;
+}

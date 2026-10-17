@@ -39,6 +39,7 @@
     "babel-preset-taro": "4.0.9",
     "postcss": "^8.4.18",
     "react-refresh": "^0.14.2",
+    "sass": "^1.105.2",
     "typescript": "^5.1.0",
     "webpack": "5.91.0"
   },
