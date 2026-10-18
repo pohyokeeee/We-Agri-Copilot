@@ -3,15 +3,18 @@ import Taro from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import AgentPanel from '../../components/AgentPanel'
 import ComparisonCard from '../../components/ComparisonCard'
+import DemoCard from '../../components/DemoCard'
 import FlagsCard from '../../components/FlagsCard'
 import ForecastCard from '../../components/ForecastCard'
+import LockCard from '../../components/LockCard'
 import PayFlow from '../../components/PayFlow'
 import PlanCard from '../../components/PlanCard'
 import ReadBackCard from '../../components/ReadBackCard'
 import Screen from '../../components/Screen'
 import SupportList from '../../components/SupportList'
+import TaxPotOffer from '../../components/TaxPotOffer'
 import { Dismissable, ErrorCard, Skeleton, Tap, useDelayed } from '../../components/ui'
-import { Compliance, Forecast, PolicyMatch, Structures, api, beginAction } from '../../services/api'
+import { Compliance, Forecast, PolicyMatch, SecurityStatus, Structures, api, beginAction } from '../../services/api'
 import { mockPlan, mockReadBack } from '../../mock'
 import { getSettings, setReducedMotion } from '../../utils/settings'
 
@@ -51,6 +54,7 @@ export default function Chat() {
   const [structures, setStructures] = useState<Structures | null>(null)
   const [forecast, setForecast] = useState<Forecast | null>(null)
   const [policies, setPolicies] = useState<PolicyMatch | null>(null)
+  const [lock, setLock] = useState<SecurityStatus | null>(null)
   const slow = { compliance: useDelayed(busy === 'compliance'), forecast: useDelayed(busy === 'forecast'), policy: useDelayed(busy === 'policy') }
 
   // Voice comes later: for now buttons ask the questions.
@@ -90,6 +94,14 @@ export default function Chat() {
       setRecording(false)
       Taro.showToast({ title: '请允许使用麦克风', icon: 'none' })
     })
+  }, [])
+
+  // The lock can be set by something that happened elsewhere (a suspicious order note), so look again every 10 seconds.
+  const refreshLock = () => { api.securityStatus().then(setLock).catch(() => undefined) }
+  useEffect(() => {
+    refreshLock()
+    const t = setInterval(refreshLock, 10000)
+    return () => clearInterval(t)
   }, [])
 
   // Push-to-talk: hold to speak, release to send.
@@ -133,6 +145,7 @@ export default function Chat() {
   return (
     <Screen title='元农民助手' sub='（人工智能，不是真人）' bar={bar}>
       <Text className='note'>Mock Bank — simulated accounts · 模拟账户，数据均为虚构</Text>
+      {lock && <LockCard status={lock} />}
       <View className='card'>
         <Text className='card-title'>王大爷，您好。想办什么事？</Text>
         <Text className='muted'>按住下面的按钮说话，或者点一个常问的问题。</Text>
@@ -157,6 +170,7 @@ export default function Chat() {
       {slow.compliance && !compliance && <Skeleton />}
       {failed === 'compliance' && <ErrorCard onRetry={askCompliance} />}
       {compliance && <FlagsCard data={compliance} />}
+      {compliance && <TaxPotOffer />}
       {structures && <ComparisonCard data={structures} />}
 
       <Tap kind='secondary' wide onClick={askForecast}>{busy === 'forecast' ? '正在算…' : '收蜂蜜的钱够不够？'}</Tap>
@@ -172,6 +186,8 @@ export default function Chat() {
       <Text className='card-q'>界面示例（演示数据）</Text>
       <PlanCard title={mockPlan.title} steps={mockPlan.steps} />
       <ReadBackCard {...mockReadBack} />
+
+      <DemoCard onChanged={refreshLock} />
 
       <Text className='card-q'>其他页面</Text>
       <View className='row'>

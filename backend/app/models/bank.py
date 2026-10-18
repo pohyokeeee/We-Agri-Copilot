@@ -21,6 +21,7 @@ class BankCustomer(SQLModel, table=True):
     cosigner_id: int | None = Field(default=None, foreign_key="bank_customer.id")
     failed_pins: int = 0
     locked: bool = False
+    lock_reason: str = ""  # injection | pin | manual
     # declared business facts the policy matcher reads: structure, activity, cultivated_mu, coop_member, coop_members, region
     profile: dict = Field(default_factory=dict, sa_column=Column(JSON))
 
@@ -67,6 +68,7 @@ class PlatformOrder(SQLModel, table=True):
     qty: int
     amount: float
     buyer_note_untrusted: str = ""
+    note_score: int = 0  # injection detector score of the note / product title when it was imported
     imported_at: NaiveDatetime
 
 
@@ -153,3 +155,14 @@ class FinancingApplication(SQLModel, table=True):
     status: str = "draft"  # draft | submitted | withdrawn
     created_at: NaiveDatetime
     submitted_at: NaiveDatetime | None = None
+
+
+class ReserveRule(SQLModel, table=True):
+    """Standing instruction: when a payout of `source` arrives, earmark `percent` of it (the tax pot)."""
+    __tablename__ = "bank_reserve_rule"
+    id: int | None = Field(default=None, primary_key=True)
+    customer_id: int = Field(foreign_key="bank_customer.id", index=True)
+    percent: float
+    source: str = "resale_payout"
+    status: str = "active"  # active | stopped
+    created_at: NaiveDatetime

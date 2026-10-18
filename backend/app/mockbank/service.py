@@ -18,12 +18,15 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
 
 from app import clock, trace
+from app.analysis import reconcile as recon
 from app.audit import chain
 from app.mockbank.numerals import amount_digits, amount_zh
 from app.models import (
     BankAccount, BankApproval, BankCustomer, BankPayee, BankProduct, BankReserve, BankTxn, CosignRequest, FinancingApplication,
 )
+from app.risk import injection
 from app.risk.tiers import GREEN, RED, classify
+from app.risk.untrusted import Untrusted
 
 TOKEN_TTL = timedelta(minutes=5)
 COSIGN_TTL = timedelta(minutes=5)  # a co-sign request nobody answers in this time expires, nothing executes
@@ -102,6 +105,8 @@ def summary_zh(s: Session, cust: BankCustomer, ap: BankApproval) -> str:
         payee = s.get(BankPayee, p["payee_id"])
         tail = f"，用途：{p['purpose']}" if p.get("purpose") else ""
         return f"{_short(cust)}要转 {amount_digits(p['amount'])} 元（{amount_zh(p['amount'])}）给{payee.name if payee else '未知收款人'}{tail}"
+    if ap.action == "reserve_rule":
+        return f"{_short(cust)}要设一条规矩：每收到一笔转卖货款，自动留出 {p['percent'] * 100:g}% 做税金"
     if ap.action == "schedule":
         k = len({i["payee_id"] for i in p["items"]})
         total = sum(i["amount"] * i["times"] for i in p["items"])
@@ -256,7 +261,7 @@ def record_pin_failure(s: Session, who: BankCustomer) -> bool:
     """Count a bad PIN; lock at 3. Returns True if now locked."""
     who.failed_pins += 1
     if who.failed_pins >= MAX_PIN_FAILS:
-        who.locked = True
+        who.locked, who.lock_reason = True, "pin"
     s.add(who)
     audit_step(s, "pin_failed", who.id, method="pin", result="locked" if who.locked else "wrong PIN", failed_pins=who.failed_pins)
     return who.locked
@@ -274,3 +279,48 @@ def verify_pin(s: Session, who: BankCustomer, pin: str):
     s.commit()
     return JSONResponse(status_code=423 if locked else 401,
                         content={"detail": "locked after 3 wrong PINs" if locked else "wrong PIN", "locked": locked})
+
+
+# ---------- the safety lock, and what can set it off ----------
+LOCK_MESSAGE_ZH = {"injection": "发现可疑内容，已暂停转账，查询不受影响", "pin": "密码输错太多次，已暂停转账，查询不受影响"}
+
+
+def lock_message(cust: BankCustomer) -> str:
+    return LOCK_MESSAGE_ZH.get(cust.lock_reason, "账户已锁定，已暂停转账，查询不受影响")
+
+
+def engage_lock(s: Session, cust: BankCustomer, reason: str, **evidence) -> bool:
+    """Lock the account (reads stay open). Unlocking is the existing co-signer flow. False if it was already locked."""
+    if cust.locked:
+        return False
+    cust.locked, cust.lock_reason = True, reason
+    s.add(cust)
+    audit_step(s, "locked", cust.id, actor="risk", method="auto", result=f"locked: {reason}", **evidence)
+    return True
+
+
+def guard_untrusted(s: Session, cust: BankCustomer, text: Untrusted, *, ref: str) -> injection.Assessment:
+    """Score untrusted text. If it looks like an instruction: log it and engage the lock. NEVER acts on the text."""
+    a = injection.assess(text)
+    if a.flagged:
+        audit_step(s, "injection_flagged", cust.id, actor="risk", method=a.method,
+                   result=f"flagged: score {a.score} >= {injection.THRESHOLD}; no action created", ref=ref, source=text.source,
+                   score=a.score, hits=a.hits, excerpt=text.excerpt())
+        engage_lock(s, cust, "injection", ref=ref, score=a.score)
+    return a
+
+
+def import_orders_guarded(s: Session, cust: BankCustomer, platform: str, csv_text: str) -> dict:
+    """Import platform orders. Each new order's note and product title are untrusted: scored, and never interpreted."""
+    flagged = []
+
+    def scan(order_id: str, text: Untrusted) -> int:
+        a = guard_untrusted(s, cust, text, ref=order_id)
+        if a.flagged:
+            flagged.append({"order_id": order_id, "score": a.score, "hits": a.hits, "excerpt": text.excerpt()})
+        return a.score
+
+    result = recon.import_orders(s, platform, csv_text, scan)  # ValueError (bad CSV) is the caller's to report
+    result = {**result, "flagged": flagged, "locked": cust.locked}
+    chain.append(s, "mockbank", "orders_imported", result)
+    return result

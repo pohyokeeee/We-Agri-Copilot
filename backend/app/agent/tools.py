@@ -26,6 +26,7 @@ from app.mockbank.numerals import amount_digits, amount_zh
 from app.mockbank.plan import plan_transfers
 from app.models import BankAccount, BankCustomer, BankPayee, FinancingApplication
 from app.risk.tiers import BASE_TIER
+from app.risk.untrusted import UntrustedInput, ensure_trusted
 
 RANK = {"green": 0, "yellow": 1, "red": 2}
 
@@ -47,6 +48,13 @@ class Ctx:
     acct: BankAccount
     args: dict  # this node's args with {"$ref"} already replaced by earlier results
     results: dict  # node id -> result
+
+    def __post_init__(self):  # payment tools never see untrusted text, whatever the plan or an earlier result contains
+        try:
+            ensure_trusted(self.args, "工具参数")
+            ensure_trusted(self.results, "前面步骤的结果")
+        except UntrustedInput as e:
+            raise ToolError(None, str(e))
 
 
 @dataclass
@@ -115,7 +123,9 @@ def _last_year(ctx: Ctx):
 
 
 def _resolve_payee(ctx: Ctx):
-    found = bank.payees(customer_id=ctx.cust.id, q=ctx.args["query"], s=ctx.s)
+    q = ctx.args["query"]
+    # a payee is found by name or alias only: a note, phone or merchant text that merely mentions the name must not make a match
+    found = [p for p in bank.payees(customer_id=ctx.cust.id, q=q, s=ctx.s) if any(q in x for x in [p["name"], *p["aliases"]])]
     if not found:
         raise ToolError(None, f"没找到叫“{ctx.args['query']}”的人")
     if len(found) > 1:
@@ -262,6 +272,10 @@ def _refs(x) -> list[str]:
 
 def validate(dag: Dag) -> None:
     """Reject a plan that tries to do more than the rules allow. Raises PlanRejected; nothing runs."""
+    try:
+        ensure_trusted([n.args for n in dag.nodes], "计划")
+    except UntrustedInput as e:
+        raise PlanRejected(str(e))
     ancestors: dict[str, set[str]] = {}
     for nid in dag.order():
         node = dag.node(nid)

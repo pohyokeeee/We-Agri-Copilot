@@ -205,7 +205,16 @@ export interface AgentView {
 }
 export type AgentCommand = '等一下' | '继续' | '贷款先不要' | '算了' | '找人工'
 
+export interface SecurityStatus { locked: boolean; reason: string; message_zh: string }
+export type RuleStart = (Approval & { readback_zh: string }) | { status: 'created'; rule_id: number; percent: number }
+export interface DemoPayout { amount: number; income_class: string; moved: number; pot_total: number }
+export interface DemoImport { new: number; flagged: { order_id: string; score: number }[]; locked: boolean }
+
 export const api = {
+  securityStatus: () => request<SecurityStatus>('GET', '/bank/security/status'),
+  createReserveRule: (token?: string) => request<RuleStart>('POST', '/bank/reserves/rules', token ? { approval_token: token } : {}),
+  demoPayout: () => request<DemoPayout>('POST', '/bank/demo/payouts', { income_class: 'resale' }),
+  demoImportSample: () => request<DemoImport>('POST', '/bank/demo/orders/import-sample?platform=livestream'),
   agentMessage: (sessionId: string, text: string) => request<AgentView>('POST', '/agent/message', { session_id: sessionId, text }),
   agentApprove: (sessionId: string, nodeId: string, token: string) =>
     request<AgentView>('POST', '/agent/approve', { session_id: sessionId, node_id: nodeId, token }),

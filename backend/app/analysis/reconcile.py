@@ -15,6 +15,7 @@ from app import clock
 from app.analysis.common import period_bounds, shift_months
 from app.audit import chain
 from app.models import BankAccount, BankTxn, PlatformOrder
+from app.risk.untrusted import Untrusted
 
 CLASSES = ("own_produce", "resale", "processed", "needs_confirmation")
 CATALOG = json.loads((Path(__file__).resolve().parents[2] / "seed" / "product_catalog.json").read_text(encoding="utf-8"))
@@ -38,8 +39,9 @@ def _livestream(r: dict) -> dict:
 ADAPTERS = {"marketplace": _marketplace, "livestream": _livestream}
 
 
-def import_orders(s: Session, platform: str, text: str) -> dict:
+def import_orders(s: Session, platform: str, text: str, scan=None) -> dict:
     """Idempotent by order id. Buyer notes are stored verbatim as untrusted data and never interpreted.
+    `scan(order_id, Untrusted)` -> score is called for each NEW order's note and product title (the injection guard).
     Raises ValueError with the CSV line number on a bad row."""
     new = skipped = 0
     for line, row in enumerate(csv.DictReader(io.StringIO(text.lstrip("﻿"))), start=2):
@@ -57,6 +59,9 @@ def import_orders(s: Session, platform: str, text: str) -> dict:
             s.add(order)
             s.flush()
             new += 1
+            if scan:
+                order.note_score = max(scan(order.id, Untrusted(order.buyer_note_untrusted, f"order {order.id} note")),
+                                       scan(order.id, Untrusted(order.product, f"order {order.id} product")))
     return {"platform": platform, "new": new, "skipped": skipped}
 
 

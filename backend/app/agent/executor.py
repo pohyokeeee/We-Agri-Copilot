@@ -19,6 +19,7 @@ from app.agent.dag import Dag
 from app.mockbank import service as svc
 from app.models import AgentAudit, AgentHandover, AgentPlan, BankApproval, CosignRequest
 from app.risk.tiers import classify
+from app.risk.untrusted import ensure_trusted
 
 _S: ContextVar[Session] = ContextVar("agent_session")
 MARKER = {"green": "🟢", "yellow": "🟡", "red": "🔴"}
@@ -141,8 +142,9 @@ def run_node(nid: str, plan_id: int, ask) -> None:
         node.update(status="blocked", error=f"前面的步骤没完成：{'、'.join(bad)}")
         _save(s, plan, st)
         return
-    ctx, tool = _ctx(s, plan, st, dnode), tools.TOOLS[node["tool"]]
+    tool = tools.TOOLS[node["tool"]]
     try:
+        ctx = _ctx(s, plan, st, dnode)
         if tool.run:
             result, summary = tool.run(ctx)
             node.update(status="done", result=result, summary_zh=summary)
@@ -214,7 +216,12 @@ def advance(s: Session, plan: AgentPlan, resume: str = "") -> None:
         return
     if pending:
         ensure_approval(s, plan, pending)
-        plan.status = "paused" if plan.paused else "waiting"
+        if plan.status == "failed":  # the bank refused to even open the approval (e.g. the account is locked)
+            st = copy.deepcopy(plan.state)
+            st["pending"] = None
+            _save(s, plan, st)
+        else:
+            plan.status = "paused" if plan.paused else "waiting"
     else:
         plan.status = "done"
         _audit(s, plan, "agent_plan_done", method="auto", result="all steps finished")
@@ -236,6 +243,7 @@ def _resume_if_needed(s: Session, plan: AgentPlan) -> None:
 
 # ---------- the three entry points ----------
 def message(s: Session, session_id: str, customer_id: int, text: str) -> dict:
+    ensure_trusted(text, "对话")  # only the user's own words become a plan
     plan = latest(s, session_id)
     if cmd := planner_mock.command_of(text):
         if not plan:

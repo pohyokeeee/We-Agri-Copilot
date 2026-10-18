@@ -9,6 +9,7 @@ an amount the user said out loud ("转800"), which is parsed from the sentence, 
 import re
 
 from app.agent.dag import Dag, DagNode
+from app.risk.untrusted import ensure_trusted
 
 COMMANDS = ("等一下", "继续", "贷款先不要", "算了", "找人工")
 QUESTION = "我没听明白。您是想：一，准备收蜂蜜的钱；二，像去年一样给六家付蜂蜜钱；还是三，给某个人转账？"
@@ -59,12 +60,15 @@ def one_transfer(who: str, amount: float, purpose: str) -> Dag:
 
 def command_of(text: str) -> str | None:
     """"等一下" etc. typed or tapped as a button."""
+    ensure_trusted(text, "指令")
     t = _PUNCT.sub("", text)
     return t if t in COMMANDS else None
 
 
 def plan(text: str) -> Dag | str:
-    """A Dag for a known request, else the clarifying question (a str)."""
+    """A Dag for a known request, else the clarifying question (a str). Only the user's own words may be planned:
+    text from order notes, payee notes or merchant names is Untrusted and is refused here."""
+    ensure_trusted(text, "计划")
     t = _PUNCT.sub("", text)
     if "收蜂蜜" in t and "准备" in t:
         return prepare_for_honey()

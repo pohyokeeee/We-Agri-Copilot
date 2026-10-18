@@ -11,7 +11,7 @@ _RANK = {GREEN: 0, YELLOW: 1, RED: 2}
 DAILY_LIMIT = 1000.0  # CNY, cumulative transfers per day
 BASE_TIER = {
     "read": GREEN, "analysis": GREEN,
-    "reserve": YELLOW, "schedule": YELLOW, "schedule_cancel": YELLOW, "financing_prefill": YELLOW,
+    "reserve": YELLOW, "reserve_rule": YELLOW, "schedule": YELLOW, "schedule_cancel": YELLOW, "financing_prefill": YELLOW,
     "financing_submit": RED, "unlock": RED,
 }  # "transfer" is computed below
 

@@ -155,13 +155,15 @@ def release_reserve(reserve_id: int, customer_id: int = 1, s: Session = Depends(
 
 
 @router.post("/orders/import")
-def import_orders(body: sc.OrdersImportIn, platform: Literal["marketplace", "livestream"], s: Session = Depends(get_session)):
-    """Idempotent by order id. Not gated: platform data, not money movement (also allowed while locked)."""
+def import_orders(body: sc.OrdersImportIn, platform: Literal["marketplace", "livestream"], customer_id: int = 1,
+                  s: Session = Depends(get_session)):
+    """Idempotent by order id. Not gated: platform data, not money movement (also allowed while locked).
+    Notes and titles are untrusted: one that reads like an instruction is flagged and engages the safety lock."""
+    cust, _ = svc.get_customer(s, customer_id)
     try:
-        result = recon.import_orders(s, platform, body.csv)
+        result = svc.import_orders_guarded(s, cust, platform, body.csv)
     except ValueError as e:
         raise HTTPException(422, str(e))
-    chain.append(s, "mockbank", "orders_imported", result)
     s.commit()
     return result
 
@@ -266,12 +268,17 @@ def mfa_verify(body: sc.MfaVerifyIn, s: Session = Depends(get_session)):
 # ---------- safety lock ----------
 @router.post("/security/lock")
 def lock(body: sc.LockIn, s: Session = Depends(get_session)):
-    cust, acct = svc.get_customer(s, body.customer_id)
-    cust.locked = True
-    s.add(cust)
-    chain.append(s, "mockbank", "locked", {"customer_id": cust.id, "balance_before": acct.balance, "balance_after": acct.balance})
+    cust, _ = svc.get_customer(s, body.customer_id)
+    svc.engage_lock(s, cust, "manual")
     s.commit()
     return {"locked": True}
+
+
+@router.get("/security/status")
+def security_status(customer_id: int = 1, s: Session = Depends(get_session)):
+    """For the app's warning card. Open while locked: reads are always allowed."""
+    cust, _ = svc.get_customer(s, customer_id)
+    return {"locked": cust.locked, "reason": cust.lock_reason if cust.locked else "", "message_zh": svc.lock_message(cust) if cust.locked else ""}
 
 
 @router.post("/security/unlock")
@@ -284,7 +291,7 @@ def unlock(body: sc.UnlockIn, s: Session = Depends(get_session)):
     if ap:
         s.commit()
         return _pending(ap)
-    cust.locked, cust.failed_pins = False, 0
+    cust.locked, cust.failed_pins, cust.lock_reason = False, 0, ""
     s.add(cust)
     svc.audit_step(s, "unlocked", cust.id, ap=used, tier=tier, method=svc.method_of(used) if used else "none", result="unlocked")
     s.commit()
