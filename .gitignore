@@ -21,3 +21,6 @@ miniprogram/.swc/
 
 miniprogram/project.private.config.json
 backend/.env
+
+# Claude Code project notes
+CLAUDE.md
