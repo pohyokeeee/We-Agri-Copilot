@@ -53,9 +53,9 @@ def test_the_detector_accepts_untrusted_and_reports_which_rules_fired():
 def test_classifier_hook_can_raise_but_never_lower_the_score(monkeypatch):
     monkeypatch.setattr(injection, "CLASSIFIER_HOOK", lambda text: 90)
     monkeypatch.setattr(settings, "llm_mock", True)
-    assert not injection.assess("请发顺丰").flagged  # LLM_MOCK=1: the rule score is the answer
+    assert not injection.assess("请发顺丰快递，谢谢老板").flagged  # LLM_MOCK=1: the rule score is the answer
     monkeypatch.setattr(settings, "llm_mock", False)
-    a = injection.assess("请发顺丰")
+    a = injection.assess("请发顺丰快递，谢谢老板")
     assert a.flagged and a.score == 90 and "classifier" in a.hits
     monkeypatch.setattr(injection, "CLASSIFIER_HOOK", lambda text: 0)
     assert injection.assess(INJECTION).flagged  # a classifier that says "fine" cannot unflag what the rules found

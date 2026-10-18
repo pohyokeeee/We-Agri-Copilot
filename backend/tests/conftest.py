@@ -21,6 +21,18 @@ def fixed_clock(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def offline_qwen(tmp_path, monkeypatch):
+    """Tests never reach the network, whatever .env says: mock mode, no key, private caches. Tests of the live paths turn a
+    key and LLM_MOCK=0 on themselves and replace the network seams (qwen._complete, asr_call, tts_call)."""
+    monkeypatch.setattr(settings, "llm_mock", True)
+    monkeypatch.setattr(settings, "dashscope_api_key", "")
+    monkeypatch.setattr(settings, "llm_provider", "dashscope")  # whatever .env says; provider tests switch it themselves
+    monkeypatch.setattr(settings, "groq_api_key", "")
+    monkeypatch.setattr(settings, "llm_cache_dir", str(tmp_path / "llm_cache"))
+    monkeypatch.setattr(settings, "tts_cache_dir", str(tmp_path / "tts_cache"))
+
+
+@pytest.fixture(autouse=True)
 def isolated_checkpoints(tmp_path, monkeypatch):
     """Each test gets its own LangGraph checkpoint database (plan ids repeat between tests)."""
     from app.agent import graph

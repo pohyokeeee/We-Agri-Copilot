@@ -14,10 +14,10 @@ from contextvars import ContextVar
 from sqlmodel import Session, select
 
 from app import clock, trace
-from app.agent import graph, planner_mock, tools
+from app.agent import explain, graph, planner, planner_mock, tools
 from app.agent.dag import Dag
 from app.mockbank import service as svc
-from app.models import AgentAudit, AgentHandover, AgentPlan, BankApproval, CosignRequest
+from app.models import AgentAudit, AgentHandover, AgentPlan, BankApproval, BankPayee, BankProduct, CosignRequest
 from app.risk.tiers import classify
 from app.risk.untrusted import ensure_trusted
 
@@ -84,7 +84,7 @@ def _revoke(s: Session, plan: AgentPlan, node: dict) -> None:
 
 
 # ---------- creating, checking ----------
-def create_plan(s: Session, session_id: str, customer_id: int, text: str, dag: Dag) -> AgentPlan:
+def create_plan(s: Session, session_id: str, customer_id: int, text: str, dag: Dag, source: str = "templates") -> AgentPlan:
     """Validate, store with a hash, audit. Raises tools.PlanRejected (nothing is stored then)."""
     tools.validate(dag)
     digest = dag.digest()
@@ -96,7 +96,7 @@ def create_plan(s: Session, session_id: str, customer_id: int, text: str, dag: D
                      state={"thread": uuid.uuid4().hex, "order": dag.order(), "nodes": nodes, "pending": None, "notice_zh": ""})
     s.add(plan)
     s.flush()
-    _audit(s, plan, "agent_plan_created", method="mock planner (templates)", result="validated", utterance=text,
+    _audit(s, plan, "agent_plan_created", method=source, result="validated", utterance=text,
            dag=dag.model_dump(), dag_hash=digest, plan_id=plan.id, session_id=session_id)
     return plan
 
@@ -247,24 +247,25 @@ def message(s: Session, session_id: str, customer_id: int, text: str) -> dict:
     plan = latest(s, session_id)
     if cmd := planner_mock.command_of(text):
         if not plan:
-            return {"session_id": session_id, "status": "question", "question_zh": "现在没有在办的事。", "nodes": [], "pending": None}
+            return {"session_id": session_id, "status": "question", "question_zh": "现在没有在办的事。", "reply_zh": "现在没有在办的事。",
+                    "nodes": [], "pending": None}
         return command(s, plan, cmd)
     if plan and plan.status not in ENDED:
         trace.adopt(plan.trace_id)
         v = view(s, plan)
-        v["notice_zh"] = "上一件事还没办完。说「继续」接着办，或者说「算了」撤销。"
+        v["notice_zh"] = v["reply_zh"] = "上一件事还没办完。说「继续」接着办，或者说「算了」撤销。"
         return v
-    result = planner_mock.plan(text)
+    result, source = planner.plan(text)
     if isinstance(result, str):
-        return {"session_id": session_id, "status": "question", "question_zh": result, "nodes": [], "pending": None}
+        return {"session_id": session_id, "status": "question", "question_zh": result, "reply_zh": result, "nodes": [], "pending": None}
     try:
-        plan = create_plan(s, session_id, customer_id, text, result)
+        plan = create_plan(s, session_id, customer_id, text, result, source)
     except tools.PlanRejected as e:
         record_rejection(s, customer_id, text, str(e), result.model_dump())
         s.commit()  # the refusal is on the record although the request fails
         raise
     advance(s, plan)
-    return view(s, plan)
+    return with_reply(s, plan)
 
 
 def approve(s: Session, plan: AgentPlan, node_id: str, token: str) -> dict:
@@ -285,7 +286,7 @@ def approve(s: Session, plan: AgentPlan, node_id: str, token: str) -> dict:
     svc.check_token(s, ctx.cust, action, payload, token, spend=False)  # 403 + an audit row on any mismatch
     _audit(s, plan, "agent_command", method="approval token", result="resumed", node_id=node_id, command="approve")
     advance(s, plan, token)
-    return view(s, plan)
+    return with_reply(s, plan)
 
 
 def _undo(s: Session, plan: AgentPlan, st: dict, nid: str, failed: list[str]) -> None:
@@ -360,10 +361,34 @@ def command(s: Session, plan: AgentPlan, name: str) -> dict:
     _save(s, plan, st)
     if name in ("继续", "贷款先不要"):
         _resume_if_needed(s, plan)
-    return view(s, plan)
+    return with_reply(s, plan)
 
 
 # ---------- what the client sees ----------
+def _known_names(s: Session) -> list[str]:
+    names = [n for p in s.exec(select(BankPayee)) for n in (p.name, *p.aliases)]
+    return names + [p.name for p in s.exec(select(BankProduct))]
+
+
+def with_reply(s: Session, plan: AgentPlan) -> dict:
+    """The view plus what to SAY: this turn's news (steps that just finished, the notice) rephrased by qwen-plus when it is on and
+    the rephrase passes the grounding and wording checks, else the template; then the bank's own read-back, word for word."""
+    v = view(s, plan)
+    st = copy.deepcopy(plan.state)
+    spoken = set(st.get("spoken", []))
+    new = [n for n in v["nodes"] if n["status"] in SETTLED and n["id"] not in spoken]
+    facts = [{"step": n["label_zh"], "result": n["summary_zh"] or n["error"] or n["status_zh"]} for n in new]
+    parts = ([st["notice_zh"]] if st.get("notice_zh") else []) + (["；".join(f"{f['step']}：{f['result']}" for f in facts) + "。"] if facts else [])
+    outputs = {"steps": facts, "results": [st["nodes"][n["id"]]["result"] for n in new], "notice": st.get("notice_zh", "")}
+    template = " ".join(parts)
+    # only news with facts in it is worth a model call; "好的，先等一下" is said as it is
+    text, source = explain.speak(template, outputs, _known_names(s)) if facts else (template, "template")
+    if v["pending"] and plan.status == "waiting":
+        text = f"{text} {v['pending']['readback_zh']}".strip()  # exact bank wording: digits and numerals, never rephrased
+    st["spoken"], st["notice_zh"] = sorted(spoken | {n["id"] for n in new}), ""  # say each piece of news once
+    _save(s, plan, st)
+    return {**v, "reply_zh": text, "reply_source": source}
+
 def view(s: Session, plan: AgentPlan) -> dict:
     st, nodes = plan.state, []
     for nid in st["order"]:

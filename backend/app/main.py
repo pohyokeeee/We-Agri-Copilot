@@ -12,6 +12,7 @@ from app.mockbank.cosign import router as cosign_router
 from app.mockbank.financing import router as financing_router
 from app.mockbank.rules import router as rules_router
 from app.mockbank.schedules import router as schedules_router
+from app.voice.router import router as voice_router
 
 
 @asynccontextmanager
@@ -29,6 +30,7 @@ app.include_router(cosign_router)
 app.include_router(financing_router)
 app.include_router(schedules_router)
 app.include_router(rules_router)
+app.include_router(voice_router)
 app.include_router(analysis_router)
 
 

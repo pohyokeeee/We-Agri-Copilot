@@ -1,14 +1,15 @@
 """Prompt-injection detector for untrusted text (order notes, product titles, payee notes, merchant names).
 
 Rule based: every matched rule adds its weight (capped at 100). Score >= THRESHOLD means "flag it, log it, engage the safety
-lock". A text that scores high only ever causes the lock; it can never cause an action. A qwen-flash classifier plugs in
-through CLASSIFIER_HOOK; with LLM_MOCK=1 (or no hook) the rule score is the answer.
+lock". A text that scores high only ever causes the lock; it can never cause an action. qwen-flash adds a second score
+(the higher of the two counts); with LLM_MOCK=1, no key, or a failed call the rule score is the answer.
 """
 import re
 from dataclasses import dataclass, field
 from typing import Callable
 
 from app.config import settings
+from app.llm import qwen
 from app.risk.untrusted import Untrusted
 
 THRESHOLD = 60
@@ -28,8 +29,9 @@ AMOUNT = re.compile(r"(?<!\d)\d{1,3}(?:[,，]\d{3})+(?!\d)|(?<!\d)\d{3,9}(?!\d)|
 ACCOUNT = re.compile(r"(?<!\d)\d{12,19}(?!\d)|(?<!\d)1[3-9]\d{9}(?!\d)|账号|账户|卡号|account", re.I)
 COMBO_WEIGHT = 45
 
-# a callable(text) -> 0..100, set when qwen-flash is wired in
+# a callable(text) -> 0..100 that replaces the qwen-flash call (tests set it); None = ask qwen-flash
 CLASSIFIER_HOOK: Callable[[str], int] | None = None
+MIN_CHARS_FOR_MODEL = 6  # shorter texts cannot carry an instruction worth a model call
 
 
 @dataclass
@@ -57,8 +59,21 @@ def assess(text: "str | Untrusted") -> Assessment:
     """Score a text. The classifier can only raise the score, never lower what the rules found."""
     raw = text.text if isinstance(text, Untrusted) else text
     a = rule_score(raw)
-    if CLASSIFIER_HOOK and not settings.llm_mock:
-        ml = CLASSIFIER_HOOK(raw)
+    # the model only runs when it could change the answer: not for empty or tiny texts, not once the rules already flagged it
+    if not settings.llm_mock and not a.flagged and len(raw.strip()) >= MIN_CHARS_FOR_MODEL:
+        ml = _model_score(raw)
         if ml > a.score:
             a = Assessment(ml, [*a.hits, "classifier"], ml >= THRESHOLD, "rules+classifier")
     return a
+
+
+def _model_score(raw: str) -> int:
+    """0 when there is no model or it fails: the rule score then stands alone."""
+    if CLASSIFIER_HOOK:
+        return CLASSIFIER_HOOK(raw)
+    if not qwen.enabled():
+        return 0
+    try:
+        return qwen.score_injection(raw)
+    except qwen.LLMError:
+        return 0

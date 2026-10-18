@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from sqlmodel import Session
 
 from app.agent.dag import Dag
+from app.agent.roles import ROLE_OF
 from app.analysis.common import n
 from app.analysis.compliance import check_compliance
 from app.analysis.forecast import forecast_procurement
@@ -281,7 +282,7 @@ def validate(dag: Dag) -> None:
         node = dag.node(nid)
         ancestors[nid] = set(node.depends_on).union(*(ancestors[d] for d in node.depends_on))
         tool = TOOLS.get(node.tool)
-        if tool is None:
+        if tool is None or node.tool not in ROLE_OF:
             raise PlanRejected(f"{nid}: 不认识的工具 {node.tool}")
         real = base_tier(tool.action)
         if RANK[node.base_tier] < RANK[real]:
