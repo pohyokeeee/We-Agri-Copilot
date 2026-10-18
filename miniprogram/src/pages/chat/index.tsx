@@ -1,7 +1,7 @@
 import { Input, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
-import AgentPanel from '../../components/AgentPanel'
+import AgentPanel, { Incoming } from '../../components/AgentPanel'
 import ComparisonCard from '../../components/ComparisonCard'
 import DemoCard from '../../components/DemoCard'
 import FlagsCard from '../../components/FlagsCard'
@@ -14,7 +14,7 @@ import Screen from '../../components/Screen'
 import SupportList from '../../components/SupportList'
 import TaxPotOffer from '../../components/TaxPotOffer'
 import { Dismissable, ErrorCard, Skeleton, Tap, useDelayed } from '../../components/ui'
-import { Compliance, Forecast, PolicyMatch, SecurityStatus, Structures, api, beginAction } from '../../services/api'
+import { API_BASE, ApiError, Compliance, Forecast, PolicyMatch, SecurityStatus, Structures, api, beginAction } from '../../services/api'
 import { mockPlan, mockReadBack } from '../../mock'
 import { getSettings, setReducedMotion } from '../../utils/settings'
 
@@ -55,6 +55,10 @@ export default function Chat() {
   const [forecast, setForecast] = useState<Forecast | null>(null)
   const [policies, setPolicies] = useState<PolicyMatch | null>(null)
   const [lock, setLock] = useState<SecurityStatus | null>(null)
+  const [incoming, setIncoming] = useState<Incoming | null>(null)
+  const [confirm, setConfirm] = useState<{ text: string; transcript: string } | null>(null)
+  const lastReply = useRef('')
+  const [textReply, setTextReply] = useState('') // a reply shown as large text because there is no audio
   const slow = { compliance: useDelayed(busy === 'compliance'), forecast: useDelayed(busy === 'forecast'), policy: useDelayed(busy === 'policy') }
 
   // Voice comes later: for now buttons ask the questions.
@@ -87,8 +91,7 @@ export default function Chat() {
   useEffect(() => {
     recorder.onStop((res) => {
       setRecording(false)
-      // TODO: upload res.tempFilePath to the backend ASR (app/voice/asr.py is a stub), then show the transcript
-      setHeard(`已录音 (${Math.round((res.duration || 0) / 1000)} 秒)，语音识别还没接上`)
+      listen(res.tempFilePath)
     })
     recorder.onError(() => {
       setRecording(false)
@@ -111,14 +114,43 @@ export default function Chat() {
     recorder.start({ format: 'mp3', duration: 60000 })
   }
   const stop = () => recorder.stop()
+  const say = (t: string, voice: boolean) => setIncoming({ id: Date.now(), text: t, voice })
   const sendText = () => {
     if (!text.trim()) return
-    setHeard(`您打的字：${text.trim()}（文字还没接上后台）`) // TODO: send to the agent once it exists
+    say(text.trim(), false)
     setText('')
   }
 
-  // TODO: backend returns a TTS url (already prefixed with the spoken AI label "元农民助手：")
-  const playReply = (url?: string) => { if (url) { audio.src = url; audio.play() } }
+  // The recording goes to the server for a transcript. Doubtful audio or a confusable number is read back first.
+  const listen = (path: string) => {
+    setHeard('正在听…')
+    beginAction()
+    api.voiceAsr(path).then((r) => {
+      if (!r.transcript.trim()) return setHeard('没听清，请再说一次，或者打字。')
+      if (r.needs_confirm) {
+        setHeard('')
+        return setConfirm({ text: r.confirm_text_zh, transcript: r.transcript })
+      }
+      setHeard(`我听到：${r.transcript}`)
+      say(r.transcript, true)
+    }).catch((e) => setHeard(e instanceof ApiError && typeof e.data.detail === 'string' ? e.data.detail : '连不上语音识别，请直接打字。'))
+  }
+
+  // Speak a reply (the server puts 元农民助手： in front of every clip). With no audio (the provider has no speech, or it is
+  // down) the same words are shown as large text with the AI label. That is a normal way to answer, not an error.
+  const playReply = (t?: string) => {
+    const words = t ?? (lastReply.current || '王大爷，您好。想办什么事？')
+    api.voiceTts(words).then((r) => {
+      if (!r) return setTextReply(words)
+      setTextReply('')
+      audio.src = `${API_BASE}${r.audio_url}`
+      audio.play()
+    }).catch(() => setTextReply(words))
+  }
+  const onReply = (t: string, voice: boolean) => {
+    lastReply.current = t
+    if (voice) playReply(t)
+  }
 
   const bar = (
     <>
@@ -159,8 +191,19 @@ export default function Chat() {
         </Dismissable>
       )}
       {heard && <Text className='card enter-down'>{heard}</Text>}
+      {textReply && (
+        <View className='card enter-down'>
+          <Text className='card-q'>元农民助手（人工智能）</Text>
+          <Text className='card-title'>{textReply}</Text>
+          <View className='row'><Tap kind='quiet' onClick={() => setTextReply('')}>知道了</Tap></View>
+        </View>
+      )}
+      {confirm && (
+        <ReadBackCard text={confirm.text} yesLabel='对，就是这样' noLabel='不对，我再说一次'
+          onYes={() => { say(confirm.transcript, true); setConfirm(null) }} onNo={() => { setConfirm(null); setHeard('好的，请再说一次。') }} />
+      )}
 
-      <AgentPanel />
+      <AgentPanel incoming={incoming} onReply={onReply} />
 
       <Text className='card-q'>办一件事</Text>
       <PayFlow />

@@ -20,15 +20,15 @@ class Settings(BaseSettings):
     llm_provider: Literal["dashscope", "groq"] = "dashscope"
     groq_api_key: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
-    groq_planner: str = "llama-3.3-70b-versatile"
-    groq_classifier: str = "llama-3.1-8b-instant"
+    groq_planner: str = "openai/gpt-oss-120b"
+    groq_classifier: str = "openai/gpt-oss-20b"
     groq_asr: str = "whisper-large-v3-turbo"
 
     dashscope_api_key: str = ""
     dashscope_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
     qwen_planner: str = "qwen-plus"
     qwen_classifier: str = "qwen-flash"
-    qwen_asr: str = "qwen3-asr-flash"
+    qwen_asr: str = "qwen-audio-3.0-asr-flash"
     qwen_tts: str = "qwen3-tts-flash"
     tts_voice: str = "Cherry"
     llm_timeout: float = 10.0  # seconds, for every model call

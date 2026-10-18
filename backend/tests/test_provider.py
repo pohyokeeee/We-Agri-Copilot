@@ -30,7 +30,7 @@ def groq(monkeypatch):
 def test_dashscope_is_the_default_and_its_settings_are_untouched():
     s = Settings(_env_file=None)
     assert s.llm_provider == "dashscope" and s.provider_name == "DashScope"
-    assert (s.llm_planner, s.llm_classifier, s.llm_asr) == ("qwen-plus", "qwen-flash", "qwen3-asr-flash")
+    assert (s.llm_planner, s.llm_classifier, s.llm_asr) == ("qwen-plus", "qwen-flash", "qwen-audio-3.0-asr-flash")
     assert s.llm_base_url == "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" and s.qwen_tts == "qwen3-tts-flash"
 
 

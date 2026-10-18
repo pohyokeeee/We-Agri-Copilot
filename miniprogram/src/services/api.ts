@@ -193,6 +193,8 @@ export interface AgentNode {
 }
 export interface AgentApproval { approval_id: number; status: string; next: Approval['next']; tier: TierName; reasons_zh: string[] }
 export interface AgentView {
+  reply_zh?: string // what to say out loud this turn (the bank's read-back included, word for word)
+  reply_source?: string
   status: 'running' | 'waiting' | 'paused' | 'done' | 'failed' | 'cancelled' | 'handed_over' | 'rejected' | 'question'
   paused?: boolean
   question_zh?: string
@@ -210,7 +212,31 @@ export type RuleStart = (Approval & { readback_zh: string }) | { status: 'create
 export interface DemoPayout { amount: number; income_class: string; moved: number; pot_total: number }
 export interface DemoImport { new: number; flagged: { order_id: string; score: number }[]; locked: boolean }
 
+export interface AsrResult {
+  transcript: string
+  confidence: number
+  needs_confirm: boolean
+  reasons: string[]
+  confirm_text_zh: string
+}
+export interface TtsResult { audio_url: string; cached: boolean; spoken_text: string }
+
+// The recording goes up as the raw body (no multipart): read the file, post the bytes.
+async function postAudio(filePath: string): Promise<AsrResult> {
+  const data = await new Promise<ArrayBuffer>((resolve, reject) => {
+    Taro.getFileSystemManager().readFile({ filePath, success: (r) => resolve(r.data as ArrayBuffer), fail: reject })
+  })
+  const header: Record<string, string> = { 'content-type': 'audio/mpeg' }
+  if (activeTrace) header['X-Trace-Id'] = activeTrace
+  const res = await Taro.request({ url: `${API_BASE}/voice/asr`, method: 'POST', data, header })
+  if (res.statusCode >= 400) throw new ApiError(res.statusCode, res.data)
+  return res.data as AsrResult
+}
+
 export const api = {
+  voiceAsr: postAudio,
+  // null = the server has no speech to give (204: e.g. the demo provider): the caller shows the words instead
+  voiceTts: (text: string) => request<TtsResult | ''>('POST', '/voice/tts', { text }).then((d) => d || null),
   securityStatus: () => request<SecurityStatus>('GET', '/bank/security/status'),
   createReserveRule: (token?: string) => request<RuleStart>('POST', '/bank/reserves/rules', token ? { approval_token: token } : {}),
   demoPayout: () => request<DemoPayout>('POST', '/bank/demo/payouts', { income_class: 'resale' }),

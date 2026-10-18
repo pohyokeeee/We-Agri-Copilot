@@ -103,6 +103,30 @@ All styling reads `miniprogram/src/styles/tokens.scss` (CSS variables on `page`)
 - **Materials:** translucent header and bottom bar with blur, solid on platforms where `backdrop-filter` is not trusted
   (`utils/device.ts`). Header and bar never overlap, so translucency is never stacked.
 
+## Models: Qwen (production) and Groq (demo stand-in)
+
+Chat (planner, spoken explanations, injection classifier) and speech-to-text go through one OpenAI-compatible client. Pick the
+provider with `LLM_PROVIDER` in the repo-root `.env`, set that provider's key, and set `LLM_MOCK=0`:
+
+| | `dashscope` (default) | `groq` |
+|---|---|---|
+| keys / URL | `DASHSCOPE_API_KEY`, `DASHSCOPE_BASE_URL` | `GROQ_API_KEY`, `GROQ_BASE_URL` |
+| chat models | `QWEN_PLANNER` (qwen-plus), `QWEN_CLASSIFIER` (qwen-flash) | `GROQ_PLANNER`, `GROQ_CLASSIFIER` |
+| speech-to-text | `QWEN_ASR` (qwen-audio-3.0-asr-flash), payee names as context | `GROQ_ASR` (Whisper), language zh, payee names as the prompt |
+| text-to-speech | `QWEN_TTS`, every clip starts with 元农民助手： | none: `/voice/tts` answers 204 and the app shows the reply as large text labelled 元农民助手（人工智能） |
+
+A key is only ever sent to its own provider. Everything else is identical on both: the DAG schema and tool allow-lists, the grounding
+and wording checks, the injection rules, the 10 s timeout, and the template fallback when a model fails. With `LLM_MOCK=1` (or no key)
+nothing leaves the machine and every feature uses its template. The tests always run offline.
+
+**Production uses Qwen** (its speech models are the ones built for dialect and elderly speech). **The demo build may use the Groq
+stand-in** while the Alibaba account is being verified; Whisper is weaker on dialect and quiet or slow speech, so expect more
+"请确认" read-backs there.
+
+`python scripts\smoke_llm.py` (from `backend/`; `--dry` shows the configuration without calling anything) calls each model of the
+selected provider once, prints OK/FAIL/SKIP with the latency, lists the provider's models and WARNs about a configured id that is not
+in the list. `smoke_qwen.py` is kept as an alias.
+
 ## Status
 
 Implemented and tested: config/db/health, all tables, audit chain + CLI, tier engine, mock bank API

@@ -116,7 +116,7 @@ def _asr_groq(audio: bytes, mime: str, glossary: list[str]) -> dict:
 
 
 def asr_call(audio: bytes, mime: str, glossary: list[str]) -> dict:
-    """Speech to text with the selected provider (qwen3-asr-flash, or Whisper on Groq). The glossary (payee names) goes in as
+    """Speech to text with the selected provider (qwen-audio-3.0-asr-flash, or Whisper on Groq). The glossary (payee names) goes in as
     context. Returns {"text", "language"}. Neither model returns a confidence score."""
     if settings.llm_provider == "groq":
         return _asr_groq(audio, mime, glossary)

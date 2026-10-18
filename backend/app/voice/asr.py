@@ -1,4 +1,4 @@
-"""Speech-to-text. The recording goes to qwen3-asr-flash with the payee names as context so "老李" is not heard as "老理".
+"""Speech-to-text. The recording goes to qwen-audio-3.0-asr-flash with the payee names as context so "老李" is not heard as "老理".
 
 The model returns no confidence score, so `confidence` here is an honest ESTIMATE from the transcript (see score()). Anything
 doubtful, and any number that is easy to mishear (十四/四十), sets needs_confirm: the app then reads what it heard back and
