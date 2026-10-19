@@ -107,7 +107,7 @@ def _asr_groq(audio: bytes, mime: str, glossary: list[str]) -> dict:
     """Whisper on Groq's /audio/transcriptions: language forced to Chinese, the payee names as the prompt (Whisper allows ~200 tokens)."""
     try:
         r = _openai().audio.transcriptions.create(
-            model=settings.groq_asr, file=(f"clip.{'wav' if 'wav' in mime else 'mp3'}", audio, mime), language="zh",
+            model=settings.groq_asr, file=(f"clip.{next((e for e in ('wav', 'webm', 'ogg') if e in mime), 'mp3')}", audio, mime), language="zh",
             prompt=("可能出现的人名和词：" + "、".join(glossary))[:200], response_format="verbose_json")
         lang = (getattr(r, "language", "") or "").lower()
         return {"text": (r.text or "").strip(), "language": "zh" if lang in ("", "chinese", "mandarin", "zh") else lang}

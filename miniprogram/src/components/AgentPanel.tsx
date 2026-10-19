@@ -15,7 +15,8 @@ const STEP: Record<AgentNode['status'], StepState> = {
 export interface Incoming { id: number; text: string; voice: boolean } // a sentence from the push-to-talk bar or the bottom text box
 
 // A sentence (typed, or heard and confirmed) -> the plan with live step status -> approval steps -> quick commands.
-export default function AgentPanel({ incoming, onReply }: { incoming?: Incoming | null; onReply?: (text: string, voice: boolean) => void }) {
+// `bare` (web): the page's own bottom bar is the input, so no second box and no example lines here.
+export default function AgentPanel({ incoming, onReply, bare }: { incoming?: Incoming | null; onReply?: (text: string, voice: boolean) => void; bare?: boolean }) {
   const session = useRef(`m${Date.now().toString(36)}`).current
   const [text, setText] = useState('')
   const [view, setView] = useState<AgentView | null>(null)
@@ -55,12 +56,16 @@ export default function AgentPanel({ incoming, onReply }: { incoming?: Incoming 
   const live = view && view.nodes.length > 0
   return (
     <View className='stack'>
-      <Text className='card-q'>跟我说一件事（按住下面的按钮说，或者打字）</Text>
-      <View className='row'>
-        <Input className='input' value={text} placeholder='例如：下个月要收蜂蜜了' confirmType='send' onInput={(e) => setText(e.detail.value)} onConfirm={() => send(text)} />
-        <Tap kind='primary' onClick={() => send(text)}>发送</Tap>
-      </View>
-      {!live && EXAMPLES.map((x) => <Tap key={x} kind='quiet' onClick={() => send(x)}>试试：{x}</Tap>)}
+      {!bare && (
+        <>
+        <Text className='card-q'>跟我说一件事（按住下面的按钮说，或者打字）</Text>
+        <View className='row'>
+          <Input className='input' value={text} placeholder='例如：下个月要收蜂蜜了' confirmType='send' onInput={(e) => setText(e.detail.value)} onConfirm={() => send(text)} />
+          <Tap kind='primary' onClick={() => send(text)}>发送</Tap>
+        </View>
+        {!live && EXAMPLES.map((x) => <Tap key={x} kind='quiet' onClick={() => send(x)}>试试：{x}</Tap>)}
+        </>
+      )}
 
       {down && <ErrorCard onRetry={() => retry.current()} />}
       {note && <EmptyCard>{note}</EmptyCard>}

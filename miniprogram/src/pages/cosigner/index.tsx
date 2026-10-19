@@ -8,7 +8,8 @@ import { ApiError, CosignRequest, api, beginAction } from '../../services/api'
 const COSIGNER_ID = 2 // TODO: from login; demo = Uncle Wang's daughter
 const POLL_MS = 3000
 
-export default function Cosigner() {
+// The pending list with approve / decline; the web judge panel embeds it. `hint` shows the demo PIN there.
+export function CosignerPanel({ hint }: { hint?: string }) {
   const [list, setList] = useState<CosignRequest[] | null>(null) // null = not loaded yet
   const [down, setDown] = useState(false)
   const [asking, setAsking] = useState<number | null>(null) // request whose PIN pad is open
@@ -50,7 +51,8 @@ export default function Cosigner() {
   }
 
   return (
-    <Screen title='家人确认' back>
+    <>
+      {hint && <Text className='note'>{hint}</Text>}
       {done && <View className='row'><Text className='chip chip-done'>✓ {done}</Text></View>}
       {down && <ErrorCard onRetry={load} />}
       {list === null && slow && <Skeleton />}
@@ -79,6 +81,10 @@ export default function Cosigner() {
           )}
         </View>
       ))}
-    </Screen>
+    </>
   )
+}
+
+export default function Cosigner() {
+  return <Screen title='家人确认' back><CosignerPanel /></Screen>
 }

@@ -221,14 +221,20 @@ export interface AsrResult {
 }
 export interface TtsResult { audio_url: string; cached: boolean; spoken_text: string }
 
-// The recording goes up as the raw body (no multipart): read the file, post the bytes.
-async function postAudio(filePath: string): Promise<AsrResult> {
-  const data = await new Promise<ArrayBuffer>((resolve, reject) => {
-    Taro.getFileSystemManager().readFile({ filePath, success: (r) => resolve(r.data as ArrayBuffer), fail: reject })
-  })
-  const header: Record<string, string> = { 'content-type': 'audio/mpeg' }
+// The recording goes up as the raw body (no multipart). Mini Program: read the temp file. Web: the MediaRecorder blob.
+async function postAudio(src: string | Blob): Promise<AsrResult> {
+  const header: Record<string, string> = {}
   if (activeTrace) header['X-Trace-Id'] = activeTrace
-  const res = await Taro.request({ url: `${API_BASE}/voice/asr`, method: 'POST', data, header })
+  if (typeof src !== 'string') {
+    const res = await fetch(`${API_BASE}/voice/asr`, { method: 'POST', body: src, headers: { ...header, 'content-type': src.type.split(';')[0] || 'audio/webm' } })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new ApiError(res.status, data)
+    return data as AsrResult
+  }
+  const data = await new Promise<ArrayBuffer>((resolve, reject) => {
+    Taro.getFileSystemManager().readFile({ filePath: src, success: (r) => resolve(r.data as ArrayBuffer), fail: reject })
+  })
+  const res = await Taro.request({ url: `${API_BASE}/voice/asr`, method: 'POST', data, header: { ...header, 'content-type': 'audio/mpeg' } })
   if (res.statusCode >= 400) throw new ApiError(res.statusCode, res.data)
   return res.data as AsrResult
 }

@@ -1,0 +1,43 @@
+// Web page chrome only. Tokens, cards and buttons come from app.scss. Layout uses Px (never rpx): the page is not a phone screen.
+.web { min-height: 100vh; background: var(--bg); display: flex; flex-direction: column; }
+
+.topbar { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8Px 16Px;
+  padding: 12Px 24Px; background: var(--surface); border-bottom: 1Px solid var(--line); }
+.brand { font-size: 20Px; font-weight: 700; }
+.badge { font-size: 14Px; color: var(--ink-2); border: 1Px solid var(--line); border-radius: 999Px; padding: 4Px 12Px; }
+
+.side-tabs { display: none; flex-direction: row; background: var(--surface); border-bottom: 1Px solid var(--line); }
+.side-tab { flex: 1; text-align: center; padding: 12Px 0; font-size: 16Px; font-weight: 600; color: var(--ink-2); border-bottom: 3Px solid transparent; }
+.side-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+
+.cols { flex: 1; display: flex; flex-direction: row; justify-content: center; align-items: flex-start; gap: 32Px; padding: 24Px; }
+.col { display: flex; flex-direction: column; gap: 8Px; }
+.col-label { font-size: 14Px; font-weight: 600; color: var(--ink-2); }
+.farmer { flex: none; }
+.judge { flex: 1; max-width: 720Px; min-width: 0; }
+
+// The phone: a transformed box, so the page's fixed bottom bar and hold overlay anchor to the frame, not the browser window.
+.phone { width: 390Px; max-width: 100%; height: calc(100vh - 130Px); min-height: 520Px; transform: translateZ(0); overflow: hidden;
+  background: var(--bg); border: 1Px solid var(--line); border-radius: 32Px; }
+.phone-scroll { height: 100%; overflow-y: auto; overflow-x: hidden; }
+.phone .screen { min-height: 100%; }
+.phone .bar { padding-bottom: var(--sp-2); }
+.phone .pill { touch-action: none; user-select: none; }
+
+.bubble { align-self: flex-end; max-width: 85%; background: var(--accent); color: var(--accent-ink); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-4); }
+
+// Judge panel: denser than the farmer side (smaller type, tighter cards), same tokens.
+.judge-tabs { display: flex; flex-direction: row; gap: 8Px; flex-wrap: wrap; }
+.judge-tab { padding: 8Px 14Px; font-size: 14Px; font-weight: 600; border-radius: 999Px; color: var(--ink-2); border: 1Px solid var(--line); background: var(--surface); }
+.judge-tab.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.judge-body { max-height: calc(100vh - 170Px); overflow-y: auto; display: flex; flex-direction: column; gap: 12Px; }
+.judge { --fs-small: 24rpx; --fs-body: 26rpx; --fs-title: 28rpx; --fs-figure: 30rpx; --tap-min: 64rpx; --sp-4: 20rpx; --sp-3: 16rpx; }
+
+@media (max-width: 1023Px) {
+  .side-tabs { display: flex; }
+  .cols { padding: 16Px; }
+  .col.away { display: none; }
+  .col { flex: 1; width: 100%; max-width: 100%; align-items: center; }
+  .judge { align-items: stretch; }
+  .phone { height: calc(100vh - 150Px); }
+}

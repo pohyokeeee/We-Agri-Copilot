@@ -27,7 +27,7 @@ def _off(kind: str) -> HTTPException:
 
 @router.post("/asr")
 async def transcribe(request: Request, customer_id: int = 1, s: Session = Depends(get_session)):
-    """Body = the raw audio bytes (Content-Type audio/mpeg from Taro's recorder, or audio/wav)."""
+    """Body = the raw audio bytes (Content-Type audio/mpeg from Taro's recorder, audio/wav, or audio/webm/ogg from a browser MediaRecorder)."""
     if not qwen.enabled():
         raise _off("asr")
     if int(request.headers.get("content-length") or 0) > MAX_AUDIO:
@@ -37,7 +37,8 @@ async def transcribe(request: Request, customer_id: int = 1, s: Session = Depend
         raise HTTPException(400, "没有收到录音")
     if len(audio) > MAX_AUDIO:
         raise HTTPException(413, "录音太长了")
-    mime = {"audio/mp3": "audio/mpeg", "audio/mpeg": "audio/mpeg", "audio/wav": "audio/wav", "audio/x-wav": "audio/wav"}.get(
+    mime = {"audio/mp3": "audio/mpeg", "audio/mpeg": "audio/mpeg", "audio/wav": "audio/wav", "audio/x-wav": "audio/wav",
+            "audio/webm": "audio/webm", "audio/ogg": "audio/ogg"}.get(
         request.headers.get("content-type", "").split(";")[0].strip().lower(), "audio/mpeg")
     cust, _ = svc.get_customer(s, customer_id)
     names = asr.glossary(s, customer_id)

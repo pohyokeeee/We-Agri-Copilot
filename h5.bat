@@ -16,6 +16,7 @@ rem The browser on a teammate's machine must reach the backend by this laptop's 
 start "H5 preview (dev:h5)" /D "%~dp0miniprogram" cmd /k "npm run dev:h5"
 
 echo.
+echo This laptop:     http://localhost:10086
 echo Teammates open:  http://%LAN_IP%:10086   ^(first build takes a minute; the backend must be running: start.bat^)
 echo API base URL set to http://%LAN_IP%:8000 in miniprogram\.env.local ^(git-ignored^). Allow python and node in Windows Firewall ^(Private^).
 echo Remote access: cloudflared tunnel --url http://localhost:10086   ^(also tunnel port 8000, put its URL in
