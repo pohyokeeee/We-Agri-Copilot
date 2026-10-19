@@ -1,7 +1,7 @@
 import { Text, View } from '@tarojs/components'
 import type { Forecast } from '../services/api'
 import PlanCard from './PlanCard'
-import { EmptyCard, yuan } from './ui'
+import { EmptyCard, Fold, yuan } from './ui'
 
 // One question: is there enough money? The answer (gap, or "enough") is the biggest thing on the card.
 export default function ForecastCard({ data }: { data: Forecast }) {
@@ -54,8 +54,7 @@ export default function ForecastCard({ data }: { data: Forecast }) {
       ))}
 
       <View className='card enter-down'>
-        <Text className='card-q'>这是怎么算出来的？</Text>
-        {data.assumptions.map((a) => <Text key={a}>· {a}</Text>)}
+        <Fold>{data.assumptions.map((a) => <Text key={a}>· {a}</Text>)}</Fold>
       </View>
     </View>
   )

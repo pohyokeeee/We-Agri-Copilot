@@ -73,7 +73,6 @@ export default function Chat({ external }: { external?: Incoming | null }) {
   const [incoming, setIncoming] = useState<Incoming | null>(null)
   const [stream, setStream] = useState<Entry[]>([])
   const [confirm, setConfirm] = useState<{ text: string; transcript: string } | null>(null)
-  const lastReply = useRef('')
   const [textReply, setTextReply] = useState('') // a reply shown as large text because there is no audio
   const slow = { compliance: useDelayed(busy === 'compliance'), forecast: useDelayed(busy === 'forecast'), policy: useDelayed(busy === 'policy') }
 
@@ -140,19 +139,16 @@ export default function Chat({ external }: { external?: Incoming | null }) {
     else say(external.text, false)
   }, [external?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // keep the newest card in view inside the phone frame (cards also grow later: plan status, approval steps), unless the person scrolled far up
+  // a new question scrolls its bubble to the top of the phone, so the answer that follows is read from its start
   useEffect(() => {
-    const el = WEB ? document.querySelector('.phone-scroll') : null
-    if (!el) return undefined
-    const mo = new MutationObserver(() => { if (el.scrollHeight - el.scrollTop - el.clientHeight < 1200) el.scrollTop = el.scrollHeight })
-    mo.observe(el, { childList: true, subtree: true })
-    return () => mo.disconnect()
-  }, [])
+    if (!WEB) return
+    setTimeout(() => { const b = document.querySelectorAll('.phone .bubble'); b[b.length - 1]?.scrollIntoView({ block: 'start', behavior: 'smooth' }) }, 80)
+  }, [stream.length])
 
   const noMic = () => {
     lastTyping = true
     setTyping(true)
-    setHeard('麦克风没有打开，没关系，请直接打字。')
+    setHeard('用不了麦克风（浏览器没有允许，或不支持），请直接打字。')
   }
   const startWeb = async () => {
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return noMic()
@@ -162,7 +158,10 @@ export default function Chat({ external }: { external?: Incoming | null }) {
     } catch {
       return noMic()
     }
-    if (!touch.current.down) return media.getTracks().forEach((t) => t.stop()) // let go while the browser was still asking
+    if (!touch.current.down) { // let go while the browser was still asking: the first press only grants permission
+      media.getTracks().forEach((t) => t.stop())
+      return setHeard('麦克风已经打开，请再按住说话。')
+    }
     const mime = WEB_TYPES.find((t) => MediaRecorder.isTypeSupported(t))
     const mr = new MediaRecorder(media, mime ? { mimeType: mime } : undefined)
     const chunks: Blob[] = []
@@ -246,8 +245,8 @@ export default function Chat({ external }: { external?: Incoming | null }) {
 
   // Speak a reply (the server puts 元农民助手： in front of every clip). With no audio (the provider has no speech, or it is
   // down) the same words are shown as large text with the AI label. That is a normal way to answer, not an error.
-  const playReply = (t?: string) => {
-    const words = t ?? (lastReply.current || '王大爷，您好。想办什么事？')
+  const playReply = (t: string) => {
+    const words = t
     if (!audio) return setTextReply(words) // H5: nothing to play, so the words are shown instead
     api.voiceTts(words).then((r) => {
       if (!r) return setTextReply(words)
@@ -257,14 +256,13 @@ export default function Chat({ external }: { external?: Incoming | null }) {
     }).catch(() => setTextReply(words))
   }
   const onReply = (t: string, voice: boolean) => {
-    lastReply.current = t
     if (voice) playReply(t)
   }
 
   const toggleMode = () => { lastTyping = !typing; setTyping(!typing) }
   const bar = (
     <>
-      {(WEAPP || WEB) && <View className='mode' hoverClass='pressed' hoverStartTime={0} hoverStayTime={100} onClick={toggleMode}><Text>{typing ? '🎤' : '⌨️'}</Text></View>}
+      {(WEAPP || WEB) && <View className='mode' hoverClass='pressed' hoverStartTime={0} hoverStayTime={100} onClick={toggleMode}><Text>{typing ? '🎤 语音' : '⌨️ 打字'}</Text></View>}
       {typing ? (
         <>
           <Input className='input' value={text} placeholder='打字告诉我' confirmType='send' onInput={(e) => setText(e.detail.value)} onConfirm={sendText} />
@@ -273,7 +271,7 @@ export default function Chat({ external }: { external?: Incoming | null }) {
       ) : (
         <View className={`pill ${recording ? 'on' : ''}`} hoverClass='pill-down' hoverStartTime={0} hoverStayTime={0}
           {...(WEB ? webPill : { onTouchStart: (e: unknown) => { touch.current.y = clientY(e); start() }, onTouchMove: (e: unknown) => moveTo(clientY(e)), onTouchEnd: stop, onTouchCancel: stop })}>
-          <Text>按住 说话</Text>
+          <Text>按住说话</Text>
         </View>
       )}
     </>
@@ -323,7 +321,7 @@ export default function Chat({ external }: { external?: Incoming | null }) {
           )}
         </View>
       )}
-      <Text className='note'>Mock Bank — simulated accounts · 模拟账户，数据均为虚构</Text>
+      <Text className='note'>模拟银行 · 模拟账户，数据均为虚构</Text>
       {lock && <LockCard status={lock} />}
       <View className='card'>
         <Text className='card-title'>王大爷，您好。想办什么事？</Text>
@@ -333,7 +331,6 @@ export default function Chat({ external }: { external?: Incoming | null }) {
             <Tap key={k} kind='secondary' wide onClick={asks[k]}>{busy === k ? '正在查…' : ASK_TEXT[k]}</Tap>
           ))}
         </View>
-        <View className='row'><Tap kind='quiet' onClick={() => playReply()}>🔊 再听一遍</Tap></View>
       </View>
       {micHelp && (
         <Dismissable from='up' onDone={() => { setMicHelp(false); answer.current?.(false) }}>

@@ -1,43 +1,61 @@
-// Web page chrome only. Tokens, cards and buttons come from app.scss. Layout uses Px (never rpx): the page is not a phone screen.
-.web { min-height: 100vh; background: var(--bg); display: flex; flex-direction: column; }
+// Web page chrome only. Tokens, cards and buttons come from app.scss; gutters, radii and colours are the tokens too.
+// Px (not rpx) is used only for the fixed frame sizes, because the page is not a phone screen.
+$top: 56Px;
+$label: 28Px;
 
-.topbar { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8Px 16Px;
-  padding: 12Px 24Px; background: var(--surface); border-bottom: 1Px solid var(--line); }
-.brand { font-size: 20Px; font-weight: 700; }
-.badge { font-size: 14Px; color: var(--ink-2); border: 1Px solid var(--line); border-radius: 999Px; padding: 4Px 12Px; }
+.web { height: 100vh; box-sizing: border-box; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
 
-.side-tabs { display: none; flex-direction: row; background: var(--surface); border-bottom: 1Px solid var(--line); }
-.side-tab { flex: 1; text-align: center; padding: 12Px 0; font-size: 16Px; font-weight: 600; color: var(--ink-2); border-bottom: 3Px solid transparent; }
+.topbar { flex: none; height: $top; box-sizing: border-box; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  padding: 0 var(--sp-5); background: var(--surface); border-bottom: 2rpx solid var(--line); }
+.brand { font-size: var(--fs-title); font-weight: 700; letter-spacing: var(--ls-title); }
+.badge { font-size: var(--fs-small); color: var(--ink-2); border: 2rpx solid var(--line); border-radius: var(--r-pill); padding: 0 var(--sp-3); white-space: nowrap; }
+
+.side-tabs { display: none; flex: none; flex-direction: row; background: var(--surface); border-bottom: 2rpx solid var(--line); }
+.side-tab { flex: 1; text-align: center; min-height: var(--tap-min); display: flex; align-items: center; justify-content: center;
+  font-size: var(--fs-body); font-weight: 700; color: var(--ink-2); border-bottom: 4rpx solid transparent; }
 .side-tab.on { color: var(--accent); border-bottom-color: var(--accent); }
 
-.cols { flex: 1; display: flex; flex-direction: row; justify-content: center; align-items: flex-start; gap: 32Px; padding: 24Px; }
-.col { display: flex; flex-direction: column; gap: 8Px; }
-.col-label { font-size: 14Px; font-weight: 600; color: var(--ink-2); }
-.farmer { flex: none; }
-.judge { flex: 1; max-width: 720Px; min-width: 0; }
+// both columns: same top edge, same height (the rest of the viewport), each scrolls inside itself
+.cols { flex: 1; min-height: 0; width: 100%; max-width: 1280Px; margin: 0 auto; box-sizing: border-box; display: flex; flex-direction: row;
+  justify-content: center; align-items: stretch; gap: var(--sp-5); padding: var(--sp-4) var(--sp-5) var(--sp-5); }
+.col { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.col-label { flex: none; height: $label; line-height: $label; font-size: var(--fs-small); font-weight: 700; color: var(--ink-2); }
+.farmer { flex: none; width: 390Px; }
+.judge { flex: 1; max-width: 760Px; }
 
-// The phone: a transformed box, so the page's fixed bottom bar and hold overlay anchor to the frame, not the browser window.
-.phone { width: 390Px; max-width: 100%; height: calc(100vh - 130Px); min-height: 520Px; transform: translateZ(0); overflow: hidden;
-  background: var(--bg); border: 1Px solid var(--line); border-radius: 32Px; }
-.phone-scroll { height: 100%; overflow-y: auto; overflow-x: hidden; }
-.phone .screen { min-height: 100%; }
-.phone .bar { padding-bottom: var(--sp-2); }
+// The phone: a transformed box so the hold-to-talk overlay anchors to the frame. Header and bar are fixed rows; only the content scrolls,
+// so nothing can ever sit under the header.
+.phone, .panel { flex: 1; min-height: 0; box-sizing: border-box; background: var(--bg); border: 2rpx solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.phone { transform: translateZ(0); }
+.phone .screen { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.phone .header { position: static; flex: none; }
+.phone .content { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: var(--sp-4); }
+.phone .bar { position: static; flex: none; }
 .phone .pill { touch-action: none; user-select: none; }
 
 .bubble { align-self: flex-end; max-width: 85%; background: var(--accent); color: var(--accent-ink); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-4); }
 
-// Judge panel: denser than the farmer side (smaller type, tighter cards), same tokens.
-.judge-tabs { display: flex; flex-direction: row; gap: 8Px; flex-wrap: wrap; }
-.judge-tab { padding: 8Px 14Px; font-size: 14Px; font-weight: 600; border-radius: 999Px; color: var(--ink-2); border: 1Px solid var(--line); background: var(--surface); }
-.judge-tab.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
-.judge-body { max-height: calc(100vh - 170Px); overflow-y: auto; display: flex; flex-direction: column; gap: 12Px; }
-.judge { --fs-small: 24rpx; --fs-body: 26rpx; --fs-title: 28rpx; --fs-figure: 30rpx; --tap-min: 64rpx; --sp-4: 20rpx; --sp-3: 16rpx; }
+// Judge panel: denser than the farmer side (smaller type), same tokens.
+.panel { display: flex; flex-direction: column; background: var(--bg);
+  --fs-small: 24rpx; --fs-body: 26rpx; --fs-title: 28rpx; --fs-figure: 30rpx; --tap-min: 64rpx; }
+.judge-tabs { flex: none; display: flex; flex-direction: row; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); background: var(--surface); border-bottom: 2rpx solid var(--line); }
+.judge-tab { min-height: var(--tap-min); padding: 0 var(--sp-4); display: flex; align-items: center; font-size: var(--fs-body); font-weight: 600;
+  border-radius: var(--r-pill); color: var(--ink-2); }
+.judge-tab.on { color: var(--accent-ink); background: var(--accent); }
+.judge-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+.trow { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3) 0; border-bottom: 2rpx solid var(--line); }
+.trow:last-child { border-bottom: 0; }
+.trow-name { font-size: var(--fs-body); font-weight: 700; }
+.panel .row { gap: var(--sp-2); }
 
 @media (max-width: 1023Px) {
   .side-tabs { display: flex; }
-  .cols { padding: 16Px; }
+  .cols { padding: var(--sp-3); }
   .col.away { display: none; }
-  .col { flex: 1; width: 100%; max-width: 100%; align-items: center; }
-  .judge { align-items: stretch; }
-  .phone { height: calc(100vh - 150Px); }
+  .col { flex: 1; width: 100%; max-width: 100%; }
+  .farmer { align-items: center; }
+  .farmer .phone { width: 390Px; max-width: 100%; flex: 1; }
+  .judge { max-width: 100%; }
 }
+
+.panel .op .btn-wide { justify-content: flex-start; padding-left: 0; }

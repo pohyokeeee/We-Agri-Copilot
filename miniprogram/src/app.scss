@@ -108,10 +108,10 @@
 .rm .sk { animation: none; }
 
 // ---------- composer: mode icon | hold-to-talk pill or text input + send ----------
-.mode { width: var(--tap-min); height: var(--tap-min); flex: none; border-radius: var(--r-pill); background: var(--surface);
-  display: flex; align-items: center; justify-content: center; font-size: var(--fs-figure); }
+.mode { min-width: var(--tap-min); height: var(--tap-min); padding: 0 var(--sp-3); flex: none; border-radius: var(--r-pill); white-space: nowrap; font-weight: 700; background: var(--surface);
+  display: flex; align-items: center; justify-content: center; font-size: var(--fs-body); }
 .pill { flex: 1; min-height: var(--tap-min); border-radius: var(--r-md); background: var(--surface); color: var(--ink);
-  display: flex; align-items: center; justify-content: center; font-size: var(--fs-body); font-weight: 700; letter-spacing: 0.2em; }
+  display: flex; align-items: center; justify-content: center; font-size: var(--fs-body); font-weight: 700; letter-spacing: 0.1em; }
 .pill-down, .pill.on { background: var(--line); }
 .send { flex: none; min-height: var(--tap-min); padding: 0 var(--sp-4); border-radius: var(--r-md); background: var(--accent); color: var(--accent-ink);
   display: flex; align-items: center; justify-content: center; font-size: var(--fs-body); font-weight: 700; }
@@ -139,6 +139,12 @@
   gap: var(--sp-3); color: var(--ink-2); }
 .demo .card { background: transparent; border: 2rpx solid var(--line); border-radius: var(--r-md); }
 .demo .btn { color: var(--ink-2); font-size: var(--fs-small); }
+
+// ---------- a folded explanation, and one demo operation (button + one line of what it does) ----------
+.fold-h { min-height: var(--tap-min); font-size: var(--fs-small); display: flex; flex-direction: row; align-items: center; justify-content: space-between;
+  color: var(--accent); font-weight: 700; border-top: 2rpx solid var(--line); }
+.fold-b { display: flex; flex-direction: column; gap: var(--sp-2); padding-bottom: var(--sp-2); }
+.op { display: flex; flex-direction: column; gap: var(--sp-1); }
 
 // ---------- PIN pad: 3x4 keys, masked dots ----------
 .dots { display: flex; flex-direction: row; justify-content: center; gap: var(--sp-3); }

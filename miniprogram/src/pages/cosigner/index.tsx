@@ -56,7 +56,7 @@ export function CosignerPanel({ hint }: { hint?: string }) {
       {done && <View className='row'><Text className='chip chip-done'>✓ {done}</Text></View>}
       {down && <ErrorCard onRetry={load} />}
       {list === null && slow && <Skeleton />}
-      {list?.length === 0 && !down && <EmptyCard>现在没有需要您确认的事</EmptyCard>}
+      {list?.length === 0 && !down && <EmptyCard>暂无需要确认的请求</EmptyCard>}
       {list?.map((r) => (
         <View key={r.id} className='card enter-down'>
           <Text className='card-q'>有一件事等您确认</Text>

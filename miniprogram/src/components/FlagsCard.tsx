@@ -1,7 +1,7 @@
 import { Text, View } from '@tarojs/components'
 import type { Compliance, Flag } from '../services/api'
 import { showCitation } from './ComparisonCard'
-import { EmptyCard, yuan } from './ui'
+import { EmptyCard, Fold, yuan } from './ui'
 
 // Each flag answers one question and leads with its one number (taken from the flag's own numbers).
 function headline(f: Flag): { q: string; big: string; unit: string; cap: string } | null {
@@ -35,10 +35,10 @@ export default function FlagsCard({ data }: { data: Compliance }) {
               <View>
                 <Text className='number'>{h.big}</Text>
                 <Text className='unit'>{h.unit}</Text>
-                <Text className='small muted'>  {h.cap}</Text>
               </View>
             )}
-            <Text>{f.plain_text_zh}</Text>
+            {h && <Text>{h.cap}</Text>}
+            {h ? <Fold><Text>{f.plain_text_zh}</Text></Fold> : <Text>{f.plain_text_zh}</Text>}
             <View className='btn btn-quiet' hoverClass='pressed' hoverStartTime={0} hoverStayTime={100}
               onClick={() => showCitation(f.rule_ids, data.rules)}>
               <Text>规则来源 ⓘ</Text>

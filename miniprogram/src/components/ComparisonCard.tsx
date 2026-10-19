@@ -1,7 +1,7 @@
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { RulesMap, Structures } from '../services/api'
-import { yuan } from './ui'
+import { Fold, yuan } from './ui'
 
 export const COMPARISON_FOOTER = '这是信息，不是建议 · 请咨询12366'
 
@@ -26,14 +26,14 @@ export default function ComparisonCard({ data }: { data: Structures }) {
           {data.rows.map((row) => {
             const cell = row.cells[col.key]
             return (
-              <View key={row.key} className='inset tappable' hoverClass='pressed' hoverStartTime={0} hoverStayTime={100}
-                onClick={() => showCitation(cell.rule_ids, data.rules)}>
+              <View key={row.key} className='inset'>
                 <Text className='small muted'>{row.label_zh}</Text>
                 {cell.value !== null && <View><Text className='figure'>{yuan(cell.value)}</Text><Text className='unit'>元</Text></View>}
-                {cell.status === 'recall'
-                  ? <Text className='chip chip-recall'>▲ 待核实</Text>
-                  : <Text>{cell.text_zh}</Text>}
-                <Text className='small'>规则来源 ⓘ</Text>
+                {cell.status === 'recall' && <Text className='chip chip-recall'>▲ 待核实</Text>}
+                {cell.status !== 'recall' && (cell.value !== null ? <Fold><Text>{cell.text_zh}</Text></Fold> : <Text>{cell.text_zh}</Text>)}
+                <View className='tappable' hoverClass='pressed' hoverStartTime={0} hoverStayTime={100} onClick={() => showCitation(cell.rule_ids, data.rules)}>
+                  <Text className='small'>规则来源 ⓘ</Text>
+                </View>
               </View>
             )
           })}

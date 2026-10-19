@@ -62,6 +62,19 @@ export function useDelayed(flag: boolean, ms = 300): boolean {
   return shown
 }
 
+// A longer explanation kept out of the way: one tappable row, opened on demand.
+export function Fold({ label = '为什么？', children }: { label?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <View className='fold'>
+      <View className='fold-h tappable' hoverClass='pressed' hoverStartTime={0} hoverStayTime={100} onClick={() => setOpen(!open)}>
+        <Text>{label}</Text><Text>{open ? '▴' : '▾'}</Text>
+      </View>
+      {open && <View className='fold-b'>{children}</View>}
+    </View>
+  )
+}
+
 // Leaves along the same path it came in on (up/down = which side of its trigger it sits), then unmounts.
 export function Dismissable({ from, onDone, children }: { from: 'up' | 'down'; onDone: () => void; children: ReactNode }) {
   const [leaving, setLeaving] = useState(false)

@@ -2,7 +2,7 @@ import { Text, View } from '@tarojs/components'
 import { useState } from 'react'
 import { ApiError, Approval, api } from '../services/api'
 import ApprovalFlow from './ApprovalFlow'
-import { ErrorCard, Tap } from './ui'
+import { ErrorCard, Fold, Tap } from './ui'
 
 type Step = { k: 'offer' } | { k: 'busy' } | { k: 'approve'; view: Approval & { readback_zh: string } } | { k: 'done' } | { k: 'stopped'; why: string } | { k: 'failed' }
 
@@ -46,7 +46,7 @@ export default function TaxPotOffer() {
     <View className='card enter-down'>
       <Text className='card-q'>要不要自动留一点税金？</Text>
       <Text className='card-title'>每笔转卖货款，自动留出 1%</Text>
-      <Text className='muted'>转卖的部分要交增值税，提前留一点，到时候不慌。只是把钱留出来，不转走，随时可以停。</Text>
+      <Fold><Text>转卖的部分要交增值税，提前留一点，到时候不慌。只是把钱留出来，不转走，随时可以停。</Text></Fold>
       <Tap kind='primary' wide onClick={step.k === 'busy' ? undefined : start}>{step.k === 'busy' ? '正在办…' : '好，帮我设置'}</Tap>
     </View>
   )

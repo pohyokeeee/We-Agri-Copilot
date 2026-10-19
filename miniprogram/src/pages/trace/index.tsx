@@ -47,7 +47,7 @@ export default function Trace() {
           <View className='card'>
             <Text className='card-title'>{detail.summary_zh}</Text>
             <View className='row'><Text className='chip chip-pending'>{detail.status}</Text><Text className='small muted'>{detail.started_at}</Text></View>
-            <Hash label='trace' value={detail.trace_id} />
+            <Hash label='追踪编号' value={detail.trace_id} />
           </View>
           {detail.steps.map((s) => <Step key={s.row_id} s={s} />)}
         </>
