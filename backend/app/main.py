@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from app import trace
+from app.config import settings
 from app.agent.router import router as agent_router
 from app.analysis.router import router as analysis_router
 from app.audit.router import audit_router, trace_router
@@ -32,6 +34,10 @@ app.include_router(schedules_router)
 app.include_router(rules_router)
 app.include_router(voice_router)
 app.include_router(analysis_router)
+
+
+app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
+                   allow_origin_regex=settings.cors_origin_regex, allow_methods=["*"], allow_headers=["*"], expose_headers=["X-Trace-Id"])
 
 
 @app.middleware("http")

@@ -20,8 +20,10 @@ import { getSettings, setReducedMotion } from '../../utils/settings'
 
 type Ask = 'compliance' | 'forecast' | 'policy'
 
-const recorder = Taro.getRecorderManager()
-const audio = Taro.createInnerAudioContext()
+// Recorder, mic permission and audio playback exist only in WeChat. The H5 preview types instead and shows replies as text.
+const WEAPP = process.env.TARO_ENV === 'weapp'
+const recorder = WEAPP ? Taro.getRecorderManager() : null
+const audio = WEAPP ? Taro.createInnerAudioContext() : null
 
 // scope.record cannot go in app.json; ask at first use. Once denied, authorize() no longer prompts,
 // so explain and send the user to the settings page.
@@ -45,7 +47,7 @@ export default function Chat() {
   const [recording, setRecording] = useState(false)
   const [heard, setHeard] = useState('')
   const [micHelp, setMicHelp] = useState(false)
-  const [typing, setTyping] = useState(false)
+  const [typing, setTyping] = useState(!WEAPP)
   const [text, setText] = useState('')
   const [reduced, setReduced] = useState(getSettings().reducedMotion)
   const [busy, setBusy] = useState<Ask | ''>('') // which question is loading
@@ -89,6 +91,7 @@ export default function Chat() {
   const explain = () => new Promise<boolean>((res) => { answer.current = res; setMicHelp(true) })
 
   useEffect(() => {
+    if (!recorder) return
     recorder.onStop((res) => {
       setRecording(false)
       listen(res.tempFilePath)
@@ -109,11 +112,11 @@ export default function Chat() {
 
   // Push-to-talk: hold to speak, release to send.
   const start = async () => {
-    if (!(await ensureMic(explain))) return
+    if (!recorder || !(await ensureMic(explain))) return
     setRecording(true)
     recorder.start({ format: 'mp3', duration: 60000 })
   }
-  const stop = () => recorder.stop()
+  const stop = () => recorder?.stop()
   const say = (t: string, voice: boolean) => setIncoming({ id: Date.now(), text: t, voice })
   const sendText = () => {
     if (!text.trim()) return
@@ -140,6 +143,7 @@ export default function Chat() {
   // down) the same words are shown as large text with the AI label. That is a normal way to answer, not an error.
   const playReply = (t?: string) => {
     const words = t ?? (lastReply.current || '王大爷，您好。想办什么事？')
+    if (!audio) return setTextReply(words) // H5: nothing to play, so the words are shown instead
     api.voiceTts(words).then((r) => {
       if (!r) return setTextReply(words)
       setTextReply('')
@@ -169,7 +173,7 @@ export default function Chat() {
           </View>
         </View>
       )}
-      <Tap kind='quiet' onClick={() => setTyping(!typing)}>{typing ? '改用说话' : '改用打字'}</Tap>
+      {WEAPP && <Tap kind='quiet' onClick={() => setTyping(!typing)}>{typing ? '改用说话' : '改用打字'}</Tap>}
       <Text className='note'>这是信息，不是建议 · 请咨询12366</Text>
     </>
   )

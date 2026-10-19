@@ -105,6 +105,24 @@ Mini Program is not run in Docker.
 
 Age-friendly (适老化) defaults live in `src/app.css`: 20px+ base font, high contrast, 48px minimum tap targets.
 
+## Web preview (H5)
+
+A browser preview so teammates can click through the app without WeChat. **It is only a preview: the submission is the WeChat Mini Program.**
+Push-to-talk, microphone permission and spoken replies are WeChat-only, so the web version uses typing and shows replies as text.
+
+```bash
+cd miniprogram
+npm run dev:h5      # http://localhost:10086 (listens on 0.0.0.0)
+npm run build:h5    # static files in miniprogram/dist-h5
+```
+
+On Windows, `h5.bat` does the setup for the same Wi-Fi: it points the API base URL at this laptop's LAN IP, starts `dev:h5` and prints
+`http://<LAN IP>:10086` (start the backend with `start.bat`). The API base URL is the same build-time variable as for the Mini Program
+(`TARO_APP_API_BASE_URL`, default `http://localhost:8000`). The backend allows cross-origin calls only from localhost and private-LAN
+addresses on port 10086; add other origins (such as a tunnel) with `CORS_ORIGINS` in `.env`. For remote access:
+`cloudflared tunnel --url http://localhost:10086`, tunnel the backend too (`--url http://localhost:8000`), set `TARO_APP_API_BASE_URL` to the
+backend tunnel URL, add the H5 tunnel URL to `CORS_ORIGINS`, and restart both.
+
 ## Mini Program design tokens
 
 All styling reads `miniprogram/src/styles/tokens.scss` (CSS variables on `page`). Nothing else hard-codes a size, colour or timing.

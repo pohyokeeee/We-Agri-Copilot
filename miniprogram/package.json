@@ -6,6 +6,8 @@
   "scripts": {
     "build:weapp": "taro build --type weapp",
     "dev:weapp": "npm run build:weapp -- --watch",
+    "build:h5": "taro build --type h5",
+    "dev:h5": "taro build --type h5 --watch",
     "typecheck": "tsc --noEmit"
   },
   "browserslist": [
@@ -17,6 +19,7 @@
     "@tarojs/components": "4.0.9",
     "@tarojs/helper": "4.0.9",
     "@tarojs/plugin-framework-react": "4.0.9",
+    "@tarojs/plugin-platform-h5": "4.0.9",
     "@tarojs/plugin-platform-weapp": "4.0.9",
     "@tarojs/react": "4.0.9",
     "@tarojs/runtime": "4.0.9",
