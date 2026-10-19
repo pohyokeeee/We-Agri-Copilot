@@ -1,4 +1,4 @@
-@import './styles/tokens.scss';
+@use './styles/tokens.scss' with ($root: $root);
 
 #{$root} {
   font-family: var(--font);

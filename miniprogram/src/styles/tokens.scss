@@ -2,6 +2,7 @@
 // Units are rpx: 750rpx is the screen width, so 2rpx = 1 CSS px on a 375px phone.
 // Older-user floors (适老化): text >= 36rpx (18px), key numbers >= 56rpx (28px), tap targets >= 96rpx (48px).
 
+$root: page !default; // the platform root; app.scss passes the real one (body on the web)
 $ease: cubic-bezier(0.2, 0.9, 0.3, 1); // the house curve: critically damped, no overshoot
 
 #{$root} {

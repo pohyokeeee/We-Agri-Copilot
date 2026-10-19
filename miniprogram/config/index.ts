@@ -20,7 +20,7 @@ export default defineConfig<'webpack5'>(async (merge) => {
     compiler: { type: 'webpack5', prebundle: { enable: false } },
     cache: { enable: false },
     // web preview for teammates (the submission is the WeChat Mini Program); `taro build --type h5 --watch` serves devServer
-    h5: { publicPath: '/', staticDirectory: 'static', devServer: { host: '0.0.0.0', port: 10086 },
+    h5: { publicPath: '/', staticDirectory: 'static', devServer: { host: '0.0.0.0', port: 10086, client: { overlay: { errors: true, warnings: false } } },
       // root font fixed at 20px: 750rpx = 375px, so the phone frame on a wide desktop stays phone-sized instead of scaling with the window
       postcss: { pxtransform: { config: { minRootSize: 20, maxRootSize: 20 } } },
     },
