@@ -2,8 +2,4 @@
 
 declare module '*.css'
 
-declare namespace NodeJS {
-  interface ProcessEnv {
-    TARO_APP_API_BASE?: string
-  }
-}
+declare const API_BASE_URL: string

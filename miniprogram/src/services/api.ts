@@ -1,7 +1,7 @@
 import Taro from '@tarojs/taro'
 
-// Set TARO_APP_API_BASE in miniprogram/.env to override (see .env.example)
-export const API_BASE: string = process.env.TARO_APP_API_BASE || 'http://localhost:8000'
+// Build-time constant from config/index.ts (TARO_APP_API_BASE_URL in miniprogram/.env, default http://localhost:8000)
+export const API_BASE: string = API_BASE_URL
 
 // An answer the server gave but we cannot use (wrong PIN, locked, ...). A network failure rejects with a plain Error.
 export class ApiError extends Error {

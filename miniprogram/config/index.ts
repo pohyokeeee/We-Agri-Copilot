@@ -11,7 +11,8 @@ export default defineConfig<'webpack5'>(async (merge) => {
     sourceRoot: 'src',
     outputRoot: 'dist',
     plugins: [],
-    defineConstants: {},
+    // build-time constant: the Mini Program runtime has no `process`, so nothing in src/ may read process.env
+    defineConstants: { API_BASE_URL: JSON.stringify(process.env.TARO_APP_API_BASE_URL || 'http://localhost:8000') },
     copy: { patterns: [], options: {} },
     framework: 'react',
     compiler: { type: 'webpack5', prebundle: { enable: false } },

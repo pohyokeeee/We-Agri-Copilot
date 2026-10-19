@@ -77,10 +77,15 @@ Sample order exports for `POST /bank/orders/import` are in `backend/seed/orders/
 ```bash
 cd miniprogram
 nvm use 20                # Node 20 LTS recommended (engines: >=18 <21; Node 24 is untested with Taro 4.0.9)
-cp .env.example .env     # TARO_APP_API_BASE=http://127.0.0.1:8000
+cp .env.example .env     # optional: TARO_APP_API_BASE_URL (default http://localhost:8000)
 npm install
 npm run dev:weapp
 ```
+
+**API base URL.** It is a build-time constant (`API_BASE_URL`, set in `config/index.ts` from `TARO_APP_API_BASE_URL`); the Mini
+Program runtime has no `process`, so never read `process.env` in `src/`. Unset means `http://localhost:8000`. For a real phone use the
+PC's LAN IP: put `TARO_APP_API_BASE_URL=http://192.168.1.23:8000` in `miniprogram/.env`, start the backend with `--host 0.0.0.0`,
+and **rebuild** (`npm run dev:weapp` again), because the value is baked in at build time.
 
 Open `miniprogram/` in WeChat DevTools (AppID is the placeholder `touristappid`).
 **During development, untick "不校验合法域名、web-view(业务域名)、TLS 版本以及 HTTPS 证书"** (Details → Local
