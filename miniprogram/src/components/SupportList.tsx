@@ -12,7 +12,7 @@ export default function SupportList({ data }: { data: PolicyMatch }) {
       {data.may_qualify.map((i) => <SupportCard key={i.policy_id} item={i} />)}
       {data.if_you.length > 0 && <Text className='card-title'>如果加入合作社</Text>}
       {data.if_you.map((i) => <SupportCard key={i.policy_id} item={i} />)}
-      <Text className='note'>{data.disclaimer}</Text>
+      <Text className='note foot'>{data.disclaimer}</Text>
     </View>
   )
 }

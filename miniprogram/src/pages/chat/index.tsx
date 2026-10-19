@@ -1,4 +1,5 @@
 import { Input, Text, View } from '@tarojs/components'
+import type { ITouchEvent } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import AgentPanel, { Incoming } from '../../components/AgentPanel'
@@ -8,20 +9,19 @@ import FlagsCard from '../../components/FlagsCard'
 import ForecastCard from '../../components/ForecastCard'
 import LockCard from '../../components/LockCard'
 import PayFlow from '../../components/PayFlow'
-import PlanCard from '../../components/PlanCard'
 import ReadBackCard from '../../components/ReadBackCard'
 import Screen from '../../components/Screen'
 import SupportList from '../../components/SupportList'
 import TaxPotOffer from '../../components/TaxPotOffer'
 import { Dismissable, ErrorCard, Skeleton, Tap, useDelayed } from '../../components/ui'
 import { API_BASE, ApiError, Compliance, Forecast, PolicyMatch, SecurityStatus, Structures, api, beginAction } from '../../services/api'
-import { mockPlan, mockReadBack } from '../../mock'
 import { getSettings, setReducedMotion } from '../../utils/settings'
 
 type Ask = 'compliance' | 'forecast' | 'policy'
 
 // Recorder, mic permission and audio playback exist only in WeChat. The H5 preview types instead and shows replies as text.
 const WEAPP = process.env.TARO_ENV === 'weapp'
+let lastTyping: boolean | null = null // the composer mode is remembered while the app runs
 const recorder = WEAPP ? Taro.getRecorderManager() : null
 const audio = WEAPP ? Taro.createInnerAudioContext() : null
 
@@ -47,7 +47,10 @@ export default function Chat() {
   const [recording, setRecording] = useState(false)
   const [heard, setHeard] = useState('')
   const [micHelp, setMicHelp] = useState(false)
-  const [typing, setTyping] = useState(!WEAPP)
+  const [typing, setTyping] = useState(!WEAPP || !!lastTyping)
+  const [cancelling, setCancelling] = useState(false) // finger slid up past the threshold
+  const [tooShort, setTooShort] = useState(false)
+  const touch = useRef({ y: 0, t: 0, discard: false })
   const [text, setText] = useState('')
   const [reduced, setReduced] = useState(getSettings().reducedMotion)
   const [busy, setBusy] = useState<Ask | ''>('') // which question is loading
@@ -94,6 +97,7 @@ export default function Chat() {
     if (!recorder) return
     recorder.onStop((res) => {
       setRecording(false)
+      if (touch.current.discard) return // cancelled or too short: nothing is sent
       listen(res.tempFilePath)
     })
     recorder.onError(() => {
@@ -113,10 +117,28 @@ export default function Chat() {
   // Push-to-talk: hold to speak, release to send.
   const start = async () => {
     if (!recorder || !(await ensureMic(explain))) return
+    touch.current.discard = false
+    touch.current.t = Date.now()
+    setCancelling(false)
     setRecording(true)
     recorder.start({ format: 'mp3', duration: 60000 })
   }
-  const stop = () => recorder?.stop()
+  const stop = () => {
+    if (!recorder) return
+    if (cancelling) touch.current.discard = true
+    else if (Date.now() - touch.current.t < 600) {
+      touch.current.discard = true
+      setTooShort(true)
+      setTimeout(() => setTooShort(false), 1200)
+    }
+    setCancelling(false)
+    recorder.stop()
+  }
+  const clientY = (e: unknown) => (e as ITouchEvent).touches[0].clientY // the typed handler props only promise a plain event
+  const move = (e: unknown) => { // sliding up past 60px (about 120rpx) switches to cancel
+    const dy = touch.current.y - clientY(e)
+    if (dy > 60 !== cancelling) setCancelling(dy > 60)
+  }
   const say = (t: string, voice: boolean) => setIncoming({ id: Date.now(), text: t, voice })
   const sendText = () => {
     if (!text.trim()) return
@@ -156,30 +178,38 @@ export default function Chat() {
     if (voice) playReply(t)
   }
 
+  const toggleMode = () => { lastTyping = !typing; setTyping(!typing) }
   const bar = (
     <>
+      {WEAPP && <View className='mode' hoverClass='pressed' hoverStartTime={0} hoverStayTime={100} onClick={toggleMode}><Text>{typing ? '🎤' : '⌨️'}</Text></View>}
       {typing ? (
-        <View className='bar-row'>
+        <>
           <Input className='input' value={text} placeholder='打字告诉我' confirmType='send' onInput={(e) => setText(e.detail.value)} onConfirm={sendText} />
-          <Tap kind='primary' onClick={sendText}>发送</Tap>
-        </View>
+          <View className={`send ${text.trim() ? '' : 'off'}`} hoverClass='pressed' hoverStartTime={0} hoverStayTime={100} onClick={sendText}><Text>发送</Text></View>
+        </>
       ) : (
-        <View className='bar-row'>
-          <View className='ptt-wrap'>
-            <View className={`ring ${recording ? 'on' : ''}`} />
-            <View className={`ptt ${recording ? 'on' : ''}`} onTouchStart={start} onTouchEnd={stop} onTouchCancel={stop}>
-              <Text>{recording ? '松开发送' : '按住说话'}</Text>
-            </View>
-          </View>
+        <View className={`pill ${recording ? 'on' : ''}`} hoverClass='pill-down' hoverStartTime={0} hoverStayTime={0}
+          onTouchStart={(e) => { touch.current.y = clientY(e); start() }} onTouchMove={move} onTouchEnd={stop} onTouchCancel={stop}>
+          <Text>按住 说话</Text>
         </View>
       )}
-      {WEAPP && <Tap kind='quiet' onClick={() => setTyping(!typing)}>{typing ? '改用说话' : '改用打字'}</Tap>}
-      <Text className='note'>这是信息，不是建议 · 请咨询12366</Text>
     </>
   )
 
   return (
     <Screen title='元农民助手' sub='（人工智能，不是真人）' bar={bar}>
+      {(recording || tooShort) && (
+        <View className={`hold ${cancelling ? 'cancel' : ''}`}>
+          {tooShort ? <Text className='hold-text'>说话时间太短</Text> : (
+            <>
+              <Text className='hold-mic'>🎤</Text>
+              <View className='levels'>{[0, 1, 2, 3, 4].map((i) => <View key={i} className='level' />)}</View>
+              <Text className='hold-text'>{cancelling ? '松开 取消' : '松开 发送'}</Text>
+              {!cancelling && <Text className='small'>上滑 取消</Text>}
+            </>
+          )}
+        </View>
+      )}
       <Text className='note'>Mock Bank — simulated accounts · 模拟账户，数据均为虚构</Text>
       {lock && <LockCard status={lock} />}
       <View className='card'>
@@ -243,9 +273,6 @@ export default function Chat() {
           <Tap kind='secondary' onClick={() => Taro.navigateTo({ url: '/pages/cosigner/index' })}>家人确认页</Tap>
           <Tap kind='secondary' onClick={() => Taro.navigateTo({ url: '/pages/trace/index' })}>评委控制台</Tap>
         </View>
-        <Text className='card-q'>界面示例（演示数据）</Text>
-        <PlanCard title={mockPlan.title} steps={mockPlan.steps} />
-        <ReadBackCard {...mockReadBack} />
       </View>
     </Screen>
   )

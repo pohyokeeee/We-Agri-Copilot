@@ -40,7 +40,7 @@ export default function ComparisonCard({ data }: { data: Structures }) {
         </View>
       ))}
       {data.assumptions.map((a) => <Text key={a} className='note'>· {a}</Text>)}
-      <Text className='note'>{COMPARISON_FOOTER}</Text>
+      <Text className='note foot'>{COMPARISON_FOOTER}</Text>
     </View>
   )
 }

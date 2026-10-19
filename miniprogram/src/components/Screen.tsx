@@ -18,7 +18,7 @@ export default function Screen({ title, sub, back, bar, children }: {
         </View>
         {sub && <Text className='h-sub'>{sub}</Text>}
       </View>
-      <View className={`content ${tall ? 'pt-tall' : 'pt'} ${bar ? 'has-bar' : ''}`}>{children}</View>
+      <View className={`content ${bar ? 'has-bar' : ''}`}>{children}</View>
       {bar && <View className={'bar'}>{bar}</View>}
     </View>
   )

@@ -4,7 +4,7 @@
 
 $ease: cubic-bezier(0.2, 0.9, 0.3, 1); // the house curve: critically damped, no overshoot
 
-page {
+#{$root} {
   // ---- type: system fonts first (they ship optical sizing and CJK tuning) ----
   --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -38,6 +38,9 @@ page {
   --tier-yellow: #7a4f00; --tier-yellow-bg: #fff1cc;  // ▲
   --tier-red: #a8201a;    --tier-red-bg: #fde7e5;     // ■
 
+  // ---- the hold-to-talk overlay: dark scrim, white text ----
+  --scrim: rgba(17, 17, 17, 0.78);
+
   // ---- elevation: one subtle shadow on cards; chrome (header, bar) is solid with a hairline ----
   --shadow-1: 0 2rpx 16rpx rgba(0, 0, 0, 0.06);
 
@@ -55,5 +58,5 @@ page {
   --tap-min: 96rpx;
   --header-h: 128rpx;
   --header-h-tall: 168rpx;
-  --bar-h: 400rpx;
+  --bar-h: 128rpx;  // the composer: one 96rpx control plus 16rpx above and below
 }
