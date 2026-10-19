@@ -29,6 +29,7 @@ page {
   --surface: #ffffff;
   --line: #d1d1d6;
   --accent: #0b5cad;           // the only accent
+  --accent-press: #08427f;     // the same accent, held down
   --accent-ink: #ffffff;
   --skeleton: #e5e5ea;
 
@@ -37,9 +38,7 @@ page {
   --tier-yellow: #7a4f00; --tier-yellow-bg: #fff1cc;  // ▲
   --tier-red: #a8201a;    --tier-red-bg: #fde7e5;     // ■
 
-  // ---- materials ----
-  --glass: rgba(255, 255, 255, 0.72);
-  --glass-blur: blur(40rpx) saturate(180%);
+  // ---- elevation: one subtle shadow on cards; chrome (header, bar) is solid with a hairline ----
   --shadow-1: 0 2rpx 16rpx rgba(0, 0, 0, 0.06);
 
   // ---- motion: transform + opacity only ----
@@ -56,5 +55,5 @@ page {
   --tap-min: 96rpx;
   --header-h: 128rpx;
   --header-h-tall: 168rpx;
-  --bar-h: 336rpx;
+  --bar-h: 400rpx;
 }

@@ -116,8 +116,7 @@ All styling reads `miniprogram/src/styles/tokens.scss` (CSS variables on `page`)
 - **Motion:** transform + opacity only, one curve (`--ease`, no overshoot), 300ms enter/leave, 100ms press feedback.
   Cards enter from the side of their trigger and leave the same way. `reducedMotion` (`utils/settings.ts`, default off,
   toggle at the bottom of the chat page) swaps slides for a 150ms cross-fade.
-- **Materials:** translucent header and bottom bar with blur, solid on platforms where `backdrop-filter` is not trusted
-  (`utils/device.ts`). Header and bar never overlap, so translucency is never stacked.
+- **Chrome:** the header and bottom bar are solid white with a 1px hairline: no blur, no gradients. Demo-only controls sit in a quiet "演示工具" block at the very bottom of the chat page.
 
 ## Models: Qwen (production) and Groq (demo stand-in)
 

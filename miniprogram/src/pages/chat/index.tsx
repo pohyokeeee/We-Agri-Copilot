@@ -206,9 +206,10 @@ export default function Chat() {
       <AgentPanel incoming={incoming} onReply={onReply} />
 
       <Text className='card-q'>办一件事</Text>
-      <PayFlow />
+      <View className='ask'><PayFlow /></View>
 
       <Text className='card-q'>常问的几件事</Text>
+      <View className='ask'>
       <Tap kind='secondary' wide onClick={askCompliance}>{busy === 'compliance' ? '正在查…' : '我这样卖蜂蜜合规吗？'}</Tap>
       {slow.compliance && !compliance && <Skeleton />}
       {failed === 'compliance' && <ErrorCard onRetry={askCompliance} />}
@@ -225,18 +226,22 @@ export default function Chat() {
       {slow.policy && !policies && <Skeleton />}
       {failed === 'policy' && <ErrorCard onRetry={askPolicies} />}
       {policies && <SupportList data={policies} />}
+      </View>
 
-      <Text className='card-q'>界面示例（演示数据）</Text>
-      <PlanCard title={mockPlan.title} steps={mockPlan.steps} />
-      <ReadBackCard {...mockReadBack} />
-
-      <DemoCard onChanged={refreshLock} />
-
-      <Text className='card-q'>其他页面</Text>
       <View className='row'>
-        <Tap kind='secondary' onClick={() => Taro.navigateTo({ url: '/pages/cosigner/index' })}>家人确认页</Tap>
-        <Tap kind='secondary' onClick={() => Taro.navigateTo({ url: '/pages/trace/index' })}>评委控制台</Tap>
         <Tap kind='quiet' onClick={() => { setReducedMotion(!reduced); setReduced(!reduced) }}>{reduced ? '开启动画' : '减少动画'}</Tap>
+      </View>
+
+      <View className='demo'>
+        <Text className='card-q'>演示工具（仅供演示，不是办事流程）</Text>
+        <DemoCard onChanged={refreshLock} />
+        <View className='row'>
+          <Tap kind='secondary' onClick={() => Taro.navigateTo({ url: '/pages/cosigner/index' })}>家人确认页</Tap>
+          <Tap kind='secondary' onClick={() => Taro.navigateTo({ url: '/pages/trace/index' })}>评委控制台</Tap>
+        </View>
+        <Text className='card-q'>界面示例（演示数据）</Text>
+        <PlanCard title={mockPlan.title} steps={mockPlan.steps} />
+        <ReadBackCard {...mockReadBack} />
       </View>
     </Screen>
   )

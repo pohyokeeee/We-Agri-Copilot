@@ -11,31 +11,24 @@ page {
 
 // ---------- layout ----------
 .screen { min-height: 100vh; }
-.content { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
-.pt { padding-top: calc(var(--header-h) + var(--sp-3)); }
-.pt-tall { padding-top: calc(var(--header-h-tall) + var(--sp-3)); }
+.content { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-5); }
+.pt { padding-top: calc(var(--header-h) + var(--sp-5)); }
+.pt-tall { padding-top: calc(var(--header-h-tall) + var(--sp-5)); }
 .has-bar { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
 .stack { display: flex; flex-direction: column; gap: var(--sp-3); }
 .row { display: flex; flex-direction: row; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .grow { flex: 1; }
 
-// ---------- materials: translucent chrome, solid fallback. Never stacked on each other. ----------
-.header, .bar { position: fixed; left: 0; right: 0; z-index: 10; padding: 0 var(--sp-4); }
-.blur { background: var(--glass); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
-.solid { background: var(--surface); }
+// ---------- chrome: plain solid bars with a 1px hairline, no blur, no gradients ----------
+.header, .bar { position: fixed; left: 0; right: 0; z-index: 10; padding: 0 var(--sp-4); background: var(--surface); }
 .header {
-  top: 0; height: var(--header-h);
+  top: 0; height: var(--header-h); box-sizing: border-box; border-bottom: 2rpx solid var(--line);
   display: flex; flex-direction: column; justify-content: center; gap: 0;
 }
 .header.tall { height: var(--header-h-tall); }
-// scroll-edge fade instead of a hard divider under the header / above the bar
-.header::after, .bar::before {
-  content: ''; position: absolute; left: 0; right: 0; height: var(--sp-4); pointer-events: none;
-}
-.header::after { top: 100%; background: linear-gradient(var(--bg), rgba(245, 245, 247, 0)); }
 .bar { bottom: 0; height: calc(var(--bar-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+  box-sizing: border-box; border-top: 2rpx solid var(--line);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-2); }
-.bar::before { bottom: 100%; background: linear-gradient(rgba(245, 245, 247, 0), var(--bg)); }
 .h-title { font-size: var(--fs-title); letter-spacing: var(--ls-title); line-height: var(--lh-title); font-weight: 700; }
 .h-sub { font-size: var(--fs-small); letter-spacing: var(--ls-small); line-height: var(--lh-small); color: var(--ink-2); }
 
@@ -66,9 +59,14 @@ page {
   display: flex; align-items: center; justify-content: center; text-align: center;
   font-size: var(--fs-body); font-weight: 700; line-height: var(--lh-body); }
 .btn-primary { background: var(--accent); color: var(--accent-ink); }
-.btn-secondary { background: var(--surface); color: var(--accent); box-shadow: inset 0 0 0 4rpx var(--accent); }
+// secondary = plain accent text, no box: one solid primary per card, everything else reads as text
+.btn-secondary { background: transparent; color: var(--accent); padding: 0 var(--sp-3); }
 .btn-quiet { background: transparent; color: var(--accent); padding: 0 var(--sp-3); }
 .btn-wide { width: 100%; box-sizing: border-box; }
+// the farmer's questions: one calm white row each (a direct child of .ask), accent text, shadow only
+.ask { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ask > .btn-secondary { background: var(--surface); box-shadow: var(--shadow-1); border-radius: var(--r-lg);
+  justify-content: flex-start; text-align: left; padding: var(--sp-3) var(--sp-4); min-height: calc(var(--tap-min) * 1.25); }
 
 // ---------- chips: tier = shape + word + colour ----------
 .chip { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 64rpx; padding: 0 var(--sp-3);
@@ -112,16 +110,22 @@ page {
 .rm .sk { animation: none; }
 
 // ---------- push-to-talk ----------
-.ptt-wrap { position: relative; width: 176rpx; height: 176rpx; display: flex; align-items: center; justify-content: center; }
-.ptt { width: 176rpx; height: 176rpx; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink);
+.ptt-wrap { position: relative; width: 192rpx; height: 192rpx; display: flex; align-items: center; justify-content: center; }
+.ptt { width: 192rpx; height: 192rpx; border-radius: var(--r-pill); background: var(--accent); color: var(--accent-ink);
   display: flex; align-items: center; justify-content: center; font-size: var(--fs-small); font-weight: 700; text-align: center; z-index: 1; }
-.ptt.on { transform: scale(1.08); background: var(--tier-red); }
-.ring { position: absolute; width: 176rpx; height: 176rpx; border-radius: var(--r-pill); background: var(--tier-red); opacity: 0; }
+.ptt.on { transform: scale(1.06); background: var(--accent-press); }
+.ring { position: absolute; width: 192rpx; height: 192rpx; border-radius: var(--r-pill); background: var(--accent); opacity: 0; }
 .ring.on { animation: ring var(--dur-loop) var(--ease) infinite; }
 .rm .ring.on { animation: none; opacity: 0.25; }
 .input { flex: 1; min-height: var(--tap-min); padding: 0 var(--sp-3); background: var(--surface); border-radius: var(--r-md);
   font-size: var(--fs-body); }
 .bar-row { width: 100%; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: var(--sp-3); box-sizing: border-box; }
+
+// ---------- demo tools: small, quiet, last on the page ----------
+.demo { margin-top: var(--sp-6); padding-top: var(--sp-4); border-top: 2rpx solid var(--line); display: flex; flex-direction: column;
+  gap: var(--sp-3); color: var(--ink-2); }
+.demo .card { box-shadow: none; background: transparent; border: 2rpx solid var(--line); border-radius: var(--r-md); }
+.demo .btn { color: var(--ink-2); font-size: var(--fs-small); }
 
 // ---------- PIN pad: 3x4 keys, masked dots ----------
 .dots { display: flex; flex-direction: row; justify-content: center; gap: var(--sp-3); }

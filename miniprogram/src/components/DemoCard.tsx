@@ -17,7 +17,7 @@ export default function DemoCard({ onChanged }: { onChanged: () => void }) {
   const orders = () => api.demoImportSample().then((r) =>
     r.flagged.length ? `导入了 ${r.new} 单，其中 ${r.flagged.length} 单的留言可疑，已暂停转账` : `导入了 ${r.new} 单，没有发现可疑内容`)
   return (
-    <View className='card'>
+    <View className='card flat'>
       <Text className='card-q'>演示用（模拟外面发来的消息）</Text>
       <Tap kind='secondary' wide onClick={() => run(payout)}>收到一笔转卖货款</Tap>
       <Tap kind='secondary' wide onClick={() => run(orders)}>导入新订单（含可疑留言）</Tap>
