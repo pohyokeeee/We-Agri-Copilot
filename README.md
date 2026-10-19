@@ -35,6 +35,17 @@ Principle: **LLMs plan and explain; deterministic code computes.** The LLM never
 results or payees. Non-green bank actions return `202` + an approval; they execute only with a single-use token
 bound to that exact request (PIN, plus co-signer when the customer has protection mode and the tier is red).
 
+## Quick start (Windows)
+
+Double-click, or run from a terminal in the repo folder (paths with spaces are fine). Needs Python 3.12 (`py -3.12`) and Node 20.
+
+| Script | What it does |
+|---|---|
+| `setup.bat` | One time: creates `backend\.venv`, installs backend and npm packages, copies `.env.example` to `.env` if there is none. Then open `.env` in Notepad and add your keys (`LLM_MOCK=1` needs none). |
+| `start.bat` | Opens two windows: the backend (reseeds `datapp.db`, then uvicorn on port 8000) and the Mini Program build (`npm run dev:weapp`). Prints the laptop's LAN IP. |
+| `test.bat` | pytest with `LLM_MOCK=1`, audit-chain verify, `smoke_llm.py --dry`, then a PASS/FAIL summary. |
+| `phone.bat` | Writes `miniprogram\.env.local` (git-ignored) with `TARO_APP_API_BASE_URL=http://<LAN IP>:8000` and prints the real-phone steps. Restart the Mini Program build afterwards. |
+
 ## Run the backend
 
 **Use Python 3.12; 3.13+ is not supported yet (pydantic-core / LangGraph wheels).** Supported range:
