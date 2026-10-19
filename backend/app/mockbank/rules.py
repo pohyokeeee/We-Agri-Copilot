@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from app import clock
 from app.db import get_session
 from app.mockbank import service as svc
-from app.models import BankAccount, BankCustomer, BankReserve, BankTxn, ReserveRule
+from app.models import AgentAudit, BankAccount, BankCustomer, BankReserve, BankTxn, PlatformOrder, ReserveRule
 
 router = APIRouter(prefix="/bank", tags=["reserve rules (simulated)"])
 SAMPLES = Path(__file__).resolve().parents[2] / "seed" / "orders"
@@ -108,6 +108,7 @@ def demo_payout(body: DemoPayoutIn, s: Session = Depends(get_session)):
     """Simulate ONE new platform payout (resale by default). Not an approval-gated action: it stands for money arriving."""
     cust, acct = svc.get_customer(s, body.customer_id)
     before = acct.balance
+    free_before = round(before - svc.reserved_total(s, cust.id), 2)
     acct.balance = round(before + body.amount, 2)
     txn = BankTxn(account_id=acct.id, ts=clock.now(), amount=float(round(body.amount, 2)), direction="credit",
                   counterparty="集市平台 (模拟)", channel="platform_payout", category="sales", income_class=body.income_class)
@@ -118,7 +119,27 @@ def demo_payout(body: DemoPayoutIn, s: Session = Depends(get_session)):
     moved = apply_reserve_rules(s, cust, acct, txn)
     s.commit()
     return {"payout_id": txn.id, "amount": txn.amount, "income_class": txn.income_class, "balance_before": before,
-            "balance_after": acct.balance, "moved": sum(m["moved"] for m in moved), "pot_total": pot_total(s, cust.id)}
+            "balance_after": acct.balance, "moved": sum(m["moved"] for m in moved), "pot_total": pot_total(s, cust.id),
+            "available_before": free_before, "available_after": round(acct.balance - svc.reserved_total(s, cust.id), 2)}
+
+
+@router.post("/demo/payouts/{payout_id}/apply-reserve-rules")
+def demo_apply_reserve_rules(payout_id: int, customer_id: int = 1, s: Session = Depends(get_session)):
+    """The rule was switched on (and approved) AFTER this payout arrived: let it act on this payout, once.
+    With no active rule nothing moves."""
+    cust, acct = svc.get_customer(s, customer_id)
+    svc.ensure_unlocked(cust)
+    txn = s.get(BankTxn, payout_id)
+    if not txn or txn.account_id != acct.id:
+        raise HTTPException(404, "payout not found")
+    if any(r.payload.get("payout_id") == payout_id for r in s.exec(select(AgentAudit).where(AgentAudit.event == "tax_reserve_moved"))):
+        raise HTTPException(409, "the rule has already acted on this payout")
+    free_before = round(acct.balance - svc.reserved_total(s, cust.id), 2)
+    moved = apply_reserve_rules(s, cust, acct, txn)
+    s.commit()
+    return {"payout_id": txn.id, "amount": txn.amount, "balance_before": acct.balance, "balance_after": acct.balance,
+            "moved": sum(m["moved"] for m in moved), "pot_total": pot_total(s, cust.id),
+            "available_before": free_before, "available_after": round(acct.balance - svc.reserved_total(s, cust.id), 2)}
 
 
 @router.post("/demo/orders/import-sample")
@@ -127,5 +148,20 @@ def demo_import_sample(platform: Literal["marketplace", "livestream"] = "livestr
     """Import the sample export shipped in seed/orders (the livestream one carries the planted injection note)."""
     cust, _ = svc.get_customer(s, customer_id)
     result = svc.import_orders_guarded(s, cust, platform, (SAMPLES / f"{platform}_sample.csv").read_text(encoding="utf-8"))
+    s.commit()
+    return result
+
+
+@router.post("/demo/orders/import-suspicious")
+def demo_import_suspicious(customer_id: int = 1, s: Session = Depends(get_session)):
+    """A NEW marketplace order every call (fresh id) whose buyer note reads like an instruction. It goes through the normal
+    import -> injection detector -> safety lock path; nothing here acts on the note."""
+    from seed.seed import INJECTION  # the same planted sentence as the seed data
+
+    cust, _ = svc.get_customer(s, customer_id)
+    n = len(s.exec(select(PlatformOrder.id).where(PlatformOrder.id.like("MK-S%"))).all()) + 1
+    when = clock.now().isoformat(timespec="seconds")
+    csv_text = f'order_id,paid_at,product,qty,amount,buyer_note\nMK-S{n:04d},{when},自家蜂蜜 500g,1,88,"{INJECTION}"\n'
+    result = svc.import_orders_guarded(s, cust, "marketplace", csv_text)
     s.commit()
     return result

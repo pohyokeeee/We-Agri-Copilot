@@ -9,19 +9,24 @@ import FlagsCard from '../../components/FlagsCard'
 import ForecastCard from '../../components/ForecastCard'
 import LockCard from '../../components/LockCard'
 import PayFlow from '../../components/PayFlow'
+import PayoutCard from '../../components/PayoutCard'
 import ReadBackCard from '../../components/ReadBackCard'
 import Screen from '../../components/Screen'
 import SupportList from '../../components/SupportList'
+import TaxCard from '../../components/TaxCard'
 import TaxPotOffer from '../../components/TaxPotOffer'
 import { Dismissable, ErrorCard, Skeleton, Tap, useDelayed } from '../../components/ui'
-import { API_BASE, ApiError, Compliance, Forecast, PolicyMatch, SecurityStatus, Structures, api, beginAction } from '../../services/api'
+import { API_BASE, ApiError, Compliance, DemoPayout, Forecast, PolicyMatch, SecurityStatus, Structures, TaxEstimate, api, beginAction } from '../../services/api'
 import { getSettings, setReducedMotion } from '../../utils/settings'
 
-type Ask = 'compliance' | 'forecast' | 'policy'
-type Entry = { id: number; kind: 'say' | 'agent' | Ask; text?: string } // the conversation stream, oldest first
+type Ask = 'compliance' | 'tax' | 'forecast' | 'policy'
+// the conversation stream, oldest first. payout / notice come from the judge panel's demo tools (money arriving, a suspicious order)
+type Entry = { id: number; kind: 'say' | 'agent' | 'payout' | 'notice' | Ask; text?: string; payout?: DemoPayout }
+const MANY = ['say', 'payout', 'notice'] // these may repeat in the stream; a question's card moves to the end instead
 
 // The questions the farmer can ask by tapping. The same sentences are the judge panel's preset prompts.
-export const ASK_TEXT: Record<Ask, string> = { compliance: '我这样卖蜂蜜合规吗？', forecast: '收蜂蜜的钱够不够？', policy: '有没有什么补贴我能申请？' }
+export const ASK_TEXT: Record<Ask, string> = { compliance: '我这样卖蜂蜜合规吗？', tax: '这个季度大概要交多少税？', forecast: '收蜂蜜的钱够不够？', policy: '有没有什么补贴我能申请？' }
+const ASK_LABEL: Record<Ask, string> = { compliance: '合规检查', tax: '税金估算', forecast: '收蜂蜜的钱够不够', policy: '补贴申请' }
 const ASK_BY_TEXT = Object.fromEntries(Object.entries(ASK_TEXT).map(([k, v]) => [v, k])) as Record<string, Ask>
 
 // Recorder, mic permission and audio playback: WeChat has its own API, the web uses MediaRecorder and shows replies as text.
@@ -69,16 +74,17 @@ export default function Chat({ external }: { external?: Incoming | null }) {
   const [structures, setStructures] = useState<Structures | null>(null)
   const [forecast, setForecast] = useState<Forecast | null>(null)
   const [policies, setPolicies] = useState<PolicyMatch | null>(null)
+  const [tax, setTax] = useState<TaxEstimate | null>(null)
   const [lock, setLock] = useState<SecurityStatus | null>(null)
   const [incoming, setIncoming] = useState<Incoming | null>(null)
   const [stream, setStream] = useState<Entry[]>([])
   const [confirm, setConfirm] = useState<{ text: string; transcript: string } | null>(null)
   const [textReply, setTextReply] = useState('') // a reply shown as large text because there is no audio
-  const slow = { compliance: useDelayed(busy === 'compliance'), forecast: useDelayed(busy === 'forecast'), policy: useDelayed(busy === 'policy') }
+  const slow = { compliance: useDelayed(busy === 'compliance'), tax: useDelayed(busy === 'tax'), forecast: useDelayed(busy === 'forecast'), policy: useDelayed(busy === 'policy') }
 
   // A card goes to the end of the stream when its question is asked; the agent's block keeps its place (it holds the session).
-  const push = (kind: Entry['kind'], text?: string) =>
-    setStream((s) => (kind === 'agent' && s.some((e) => e.kind === 'agent') ? s : [...s.filter((e) => e.kind !== kind || kind === 'say'), { id: ++entryId, kind, text }]))
+  const push = (kind: Entry['kind'], text?: string, payout?: DemoPayout) =>
+    setStream((s) => (kind === 'agent' && s.some((e) => e.kind === 'agent') ? s : [...s.filter((e) => e.kind !== kind || MANY.includes(kind)), { id: ++entryId, kind, text, payout }]))
 
   const ask = async (kind: Ask, run: () => Promise<void>) => {
     if (busy) return
@@ -101,9 +107,10 @@ export default function Chat({ external }: { external?: Incoming | null }) {
     setCompliance(c)
     setStructures(s)
   })
+  const askTax = () => ask('tax', async () => setTax(await api.taxEstimate()))
   const askForecast = () => ask('forecast', async () => setForecast(await api.procurementForecast()))
   const askPolicies = () => ask('policy', async () => setPolicies(await api.policyMatch()))
-  const asks = { compliance: askCompliance, forecast: askForecast, policy: askPolicies }
+  const asks = { compliance: askCompliance, tax: askTax, forecast: askForecast, policy: askPolicies }
 
   const answer = useRef<(ok: boolean) => void>()
   // large-font explanation (native modals ignore our font size)
@@ -128,7 +135,12 @@ export default function Chat({ external }: { external?: Incoming | null }) {
     refreshLock()
     const t = setInterval(refreshLock, 10000)
     Taro.eventCenter.on('lock', refreshLock) // the judge panel's demo tools change the lock
-    return () => { clearInterval(t); Taro.eventCenter.off('lock', refreshLock) }
+    const onDemo = (e: { kind: 'payout'; data: DemoPayout } | { kind: 'notice' }) => {
+      if (e.kind === 'payout') return push('payout', undefined, e.data)
+      api.securityStatus().then((st) => { setLock(st); if (st.locked) push('notice', st.message_zh) }).catch(() => undefined)
+    }
+    Taro.eventCenter.on('demo', onDemo)
+    return () => { clearInterval(t); Taro.eventCenter.off('lock', refreshLock); Taro.eventCenter.off('demo', onDemo) }
   }, [])
 
   // The judge panel's preset prompts arrive as `external`: a question button's sentence runs that question, anything else goes to the agent.
@@ -280,6 +292,21 @@ export default function Chat({ external }: { external?: Incoming | null }) {
   const card = (e: Entry) => {
     switch (e.kind) {
       case 'say': return <View key={e.id} className='bubble enter-up'><Text>{e.text}</Text></View>
+      case 'payout': return <PayoutCard key={e.id} data={e.payout as DemoPayout} />
+      case 'notice': return (
+        <View key={e.id} className='card enter-down'>
+          <View className='row'><Text className='chip chip-pending'>○ 安全提醒</Text></View>
+          <Text className='card-title'>{e.text}</Text>
+          <Text className='muted'>要恢复转账，需要密码，还要家人确认。</Text>
+        </View>
+      )
+      case 'tax': return (
+        <View key={e.id} className='stack'>
+          {slow.tax && !tax && <Skeleton />}
+          {failed === 'tax' && <ErrorCard onRetry={askTax} />}
+          {tax && <TaxCard data={tax} />}
+        </View>
+      )
       case 'agent': return <AgentPanel key={e.id} incoming={incoming} onReply={onReply} bare={WEB} />
       case 'compliance': return (
         <View key={e.id} className='stack'>
@@ -328,7 +355,7 @@ export default function Chat({ external }: { external?: Incoming | null }) {
         <Text className='muted'>按住下面的按钮说话，或者点一个常问的问题。</Text>
         <View className='ask'>
           {(Object.keys(ASK_TEXT) as Ask[]).map((k) => (
-            <Tap key={k} kind='secondary' wide onClick={asks[k]}>{busy === k ? '正在查…' : ASK_TEXT[k]}</Tap>
+            <Tap key={k} kind='secondary' wide onClick={asks[k]}>{busy === k ? '正在查…' : ASK_LABEL[k]}</Tap>
           ))}
         </View>
       </View>

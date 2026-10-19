@@ -209,8 +209,19 @@ export type AgentCommand = '等一下' | '继续' | '贷款先不要' | '算了'
 
 export interface SecurityStatus { locked: boolean; reason: string; message_zh: string }
 export type RuleStart = (Approval & { readback_zh: string }) | { status: 'created'; rule_id: number; percent: number }
-export interface DemoPayout { amount: number; income_class: string; moved: number; pot_total: number }
+export interface DemoPayout {
+  payout_id: number; amount: number; income_class: string; moved: number; pot_total: number
+  balance_before: number; balance_after: number; available_before: number; available_after: number
+}
 export interface DemoImport { new: number; flagged: { order_id: string; score: number }[]; locked: boolean }
+
+export interface TaxEstimate {
+  period: string; structure_zh: string; own_produce: number; resale: number; other: number
+  vat_threshold_quarter: number; vat_threshold_month: number; vat_status: 'below' | 'reached'
+  vat: number; income_tax_low: number; income_tax_high: number; total_low: number; total_high: number
+  reserve_label: string; reserve_amount: number; readback_zh: string
+  assumptions: string[]; rules: RulesMap; rule_ids: string[]; footer_zh: string
+}
 
 export interface AsrResult {
   transcript: string
@@ -246,6 +257,12 @@ export const api = {
   securityStatus: () => request<SecurityStatus>('GET', '/bank/security/status'),
   createReserveRule: (token?: string) => request<RuleStart>('POST', '/bank/reserves/rules', token ? { approval_token: token } : {}),
   demoPayout: () => request<DemoPayout>('POST', '/bank/demo/payouts', { income_class: 'resale' }),
+  demoReset: () => request<{ status: string }>('POST', '/demo/reset'),
+  demoImportSuspicious: () => request<DemoImport>('POST', '/bank/demo/orders/import-suspicious'),
+  applyPayoutRule: (id: number) => request<Pick<DemoPayout, 'moved' | 'pot_total' | 'available_before' | 'available_after'>>('POST', `/bank/demo/payouts/${id}/apply-reserve-rules`),
+  taxEstimate: () => request<TaxEstimate>('POST', '/analysis/tax-estimate', {}),
+  createReserve: (b: { label: string; amount: number }, token?: string) =>
+    request<Approval | { status: 'created'; reserve_id: number }>('POST', '/bank/reserves', token ? { ...b, approval_token: token } : b),
   demoImportSample: () => request<DemoImport>('POST', '/bank/demo/orders/import-sample?platform=livestream'),
   agentMessage: (sessionId: string, text: string) => request<AgentView>('POST', '/agent/message', { session_id: sessionId, text }),
   agentApprove: (sessionId: string, nodeId: string, token: string) =>

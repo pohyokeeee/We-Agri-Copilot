@@ -1,13 +1,14 @@
 import { Text, View } from '@tarojs/components'
 import { useState } from 'react'
-import { ApiError, Approval, api } from '../services/api'
+import { ApiError, Approval, DemoPayout, api } from '../services/api'
 import ApprovalFlow from './ApprovalFlow'
 import { ErrorCard, Fold, Tap } from './ui'
 
 type Step = { k: 'offer' } | { k: 'busy' } | { k: 'approve'; view: Approval & { readback_zh: string } } | { k: 'done' } | { k: 'stopped'; why: string } | { k: 'failed' }
 
 // Offered right after the compliance flags: one tap, then the usual read-back and confirm.
-export default function TaxPotOffer() {
+// With `payoutId` (a payout that arrived while the rule was off) the new rule is applied to that payout straight away.
+export default function TaxPotOffer({ payoutId, onApplied }: { payoutId?: number; onApplied?: (r: Pick<DemoPayout, 'moved' | 'pot_total' | 'available_before' | 'available_after'>) => void }) {
   const [step, setStep] = useState<Step>({ k: 'offer' })
 
   const start = () => {
@@ -19,7 +20,9 @@ export default function TaxPotOffer() {
   }
   const finish = (token: string) => {
     setStep({ k: 'busy' })
-    api.createReserveRule(token).then(() => setStep({ k: 'done' })).catch(() => setStep({ k: 'failed' }))
+    api.createReserveRule(token)
+      .then(() => (payoutId === undefined ? undefined : api.applyPayoutRule(payoutId).then((r) => onApplied?.(r))))
+      .then(() => setStep({ k: 'done' })).catch(() => setStep({ k: 'failed' }))
   }
 
   if (step.k === 'failed') return <ErrorCard onRetry={start} />
@@ -44,10 +47,10 @@ export default function TaxPotOffer() {
   }
   return (
     <View className='card enter-down'>
-      <Text className='card-q'>要不要自动留一点税金？</Text>
+      <Text className='card-q'>{payoutId === undefined ? '要不要自动留一点税金？' : '这笔钱要不要留出税金？'}</Text>
       <Text className='card-title'>每笔转卖货款，自动留出 1%</Text>
       <Fold><Text>转卖的部分要交增值税，提前留一点，到时候不慌。只是把钱留出来，不转走，随时可以停。</Text></Fold>
-      <Tap kind='primary' wide onClick={step.k === 'busy' ? undefined : start}>{step.k === 'busy' ? '正在办…' : '好，帮我设置'}</Tap>
+      <Tap kind='primary' wide onClick={step.k === 'busy' ? undefined : start}>{step.k === 'busy' ? '正在办…' : '开启税金预留'}</Tap>
     </View>
   )
 }

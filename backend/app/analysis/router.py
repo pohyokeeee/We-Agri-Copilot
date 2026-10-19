@@ -8,6 +8,7 @@ from app.analysis.compliance import check_compliance
 from app.analysis.forecast import forecast_procurement
 from app.analysis.policy_match import match_policies
 from app.analysis.structures import compare_structures
+from app.analysis.tax_estimate import estimate_tax
 from app.db import get_session
 
 router = APIRouter(prefix="/analysis", tags=["analysis (information only, not advice)"])
@@ -37,6 +38,12 @@ def compliance(body: AnalysisIn, s: Session = Depends(get_session)):
 @router.post("/structures")
 def structures(body: AnalysisIn, s: Session = Depends(get_session)):
     return run(compare_structures, body, s)
+
+
+@router.post("/tax-estimate")
+def tax_estimate(body: AnalysisIn, s: Session = Depends(get_session)):
+    """This quarter's rough tax figures with the rule ids behind them. Information only: nothing is filed or paid."""
+    return run(estimate_tax, body, s)
 
 
 class ForecastIn(BaseModel):

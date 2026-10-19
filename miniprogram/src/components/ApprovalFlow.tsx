@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { ApiError, AgentApproval, Approval, api } from '../services/api'
 import PinPad from './PinPad'
 import ReadBackCard from './ReadBackCard'
+import FamilyCard, { FamilyStatus } from './FamilyCard'
 import { Tap, TierChip } from './ui'
 
 type Step = 'readback' | 'busy' | 'pin' | 'wait'
@@ -15,13 +16,14 @@ export default function ApprovalFlow({ approval, readback, onToken, onStopped }:
   const [step, setStep] = useState<Step>(approval.next === 'pin' ? 'pin' : approval.next === 'cosign' ? 'wait' : 'readback')
   const [wrong, setWrong] = useState(false)
   const [verifying, setVerifying] = useState(false)
+  const [family, setFamily] = useState<FamilyStatus>('waiting')
   const id = approval.approval_id
 
   const go = (v: Approval) => {
     if (v.next === 'ready' && v.approval_token) return onToken(v.approval_token)
     if (v.next === 'pin') return setStep('pin')
     if (v.next === 'cosign') return setStep('wait')
-    onStopped(v.next === 'expired' ? '等得太久了，这一步没有批准。' : '这一步没有批准。')
+    onStopped(v.next === 'expired' ? '等得太久了，女儿没有回复，这一步没有办。' : v.next === 'declined' ? '女儿没有同意，这一步没有办。' : '这一步没有批准。')
   }
   const stopOn = (e: unknown) => {
     if (e instanceof ApiError && e.status === 423) return onStopped('账户已锁住，这一步没有办。')
@@ -46,7 +48,12 @@ export default function ApprovalFlow({ approval, readback, onToken, onStopped }:
   useEffect(() => { // waiting for the co-signer: ask the bank every 2 seconds
     if (step !== 'wait') return undefined
     const t = setInterval(() => {
-      api.approval(id).then((v) => { if (v.next !== 'cosign') { clearInterval(t); go(v) } }).catch(() => undefined)
+      api.approval(id).then((v) => {
+        if (v.next === 'cosign') return
+        clearInterval(t)
+        setFamily(v.next === 'ready' ? 'approved' : v.next === 'declined' ? 'declined' : 'expired')
+        setTimeout(() => go(v), 1500) // let the status be read before the card moves on
+      }).catch(() => undefined)
     }, 2000)
     return () => clearInterval(t)
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -64,16 +71,6 @@ export default function ApprovalFlow({ approval, readback, onToken, onStopped }:
       </View>
     )
   }
-  if (step === 'wait') {
-    return (
-      <View className='card enter-up'>
-        <Text className='card-q'>要家人一起确认</Text>
-        <Text className='card-title'>已经通知家人，等她确认</Text>
-        <View className='row'><TierChip tier={approval.tier} /></View>
-        <Text className='muted'>她同意后，会自动接着办。</Text>
-        <Tap kind='secondary' wide onClick={cancel}>取消，不办了</Tap>
-      </View>
-    )
-  }
+  if (step === 'wait') return <FamilyCard what={readback} why={approval.reasons_zh} status={family} onCancel={cancel} />
   return <ReadBackCard text={readback} tier={approval.tier} onYes={step === 'busy' ? undefined : yes} onNo={cancel} />
 }
