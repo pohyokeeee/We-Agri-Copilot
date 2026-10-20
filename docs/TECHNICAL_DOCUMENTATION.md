@@ -199,7 +199,7 @@ LLM_MOCK=1 .venv/Scripts/python -m pytest -q                # 239 tests, about 8
 
 Docker: `docker compose up --build`, seed once with `docker compose run --rm backend python -m seed.seed`. Mini Program: `cd miniprogram && npm install && npm run dev:weapp` (Node 20), open in WeChat DevTools with the placeholder AppID `touristappid`.
 
-**Reproducing evidence.** The scripted runs of the build plan (E1–E16) exist as pytest tests (mapping in the security document), plus the live trace console (`/trace/recent`, `/trace/{id}`, Mini Program trace page) and `/audit/verify`. Seed, RNG and demo clock are fixed, so results repeat. There is **no `make evidence` target and no `evidence/EVIDENCE_INDEX.md` or E*.jsonl export yet**; the only committed evidence file is `evidence/backtest_forecast.md`.
+**Reproducing evidence.** The scripted runs of the build plan (E1–E16) exist as pytest tests (mapping in the security document), plus the live trace console (`/trace/recent`, `/trace/{id}`, Mini Program trace page) and `/audit/verify`. Seed, RNG and demo clock are fixed, so results repeat. `make evidence` (`backend/scripts/evidence.py`) replays E2 and E4–E16 plus a tamper check (X01) against the API on a fresh seeded in-memory database, with templates instead of the model, and writes `evidence/runs/E*.jsonl` (requests, bank answers, hash-chained audit rows, checks, state before/after, chain head hash) and `evidence/EVIDENCE_INDEX.md`. Two replays give byte-identical files; tokens, challenges and PINs are redacted. `make evidence-live` runs five model runs (planner, classifier, rephrase, adversarial sentence) on a local Qwen through Ollama into `evidence/live-ollama/`. E1 (monthly spending report) and E3 (sandboxed open-ended question) were dropped from the scope.
 
 ## 8. Limits to keep in mind
 - Mock bank only; no real banking, platform, or government interface exists. Nothing is ever filed or submitted outside the mock bank.
@@ -226,7 +226,7 @@ Compared against `docs/full-project-report.md` (v3) and `docs/build-plan.md`:
 | 11 | Every structure-table cell cites a rule with a link | Cells cite rule ids and status; every `citation_url` is `"TODO"` (no URLs invented) |
 | 12 | Tax statement "explain this tax text" (E14 / "这个税务短信什么意思") | No endpoint for explaining a pasted tax text; compliance flags and the gap breakdown exist |
 | 13 | Mock API paths like `/accounts/{id}/balance`, `/income/...`, `/rules/tax`, `/policies`, `/split-bills`, `/auth/mfa/*`, `/security/*` | Paths live under `/bank/...`; `/rules/tax`, `/policies` and `/split-bills` do not exist; `/auth/mfa/*` and `/security/*` exist under `/bank` |
-| 14 | `make evidence`, `E1..E16.jsonl`, DB snapshots, `EVIDENCE_INDEX.md` | None of these exist; evidence is the pytest suite, the trace console and `evidence/backtest_forecast.md` |
+| 14 | `make evidence`, `E1..E16.jsonl`, DB snapshots, `EVIDENCE_INDEX.md` | `make evidence` and the index exist; E1 and E3 dropped from the scope; state snapshots are JSON summaries in each file, not DB files |
 | 15 | Backtest on 3–5 households | Done: 5 households, with the caveat above |
 | 16 | `README.md` "Status" section | Stale: it still lists analysis, agent and voice as stubs and says the Mini Program renders static mocks; all of these are now implemented |
 | 17 | Reserve rule "1% of resale payouts" | Implemented as an earmark (balance unchanged, available shrinks), triggered when a payout is received through the demo payout endpoint |

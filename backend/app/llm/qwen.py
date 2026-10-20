@@ -1,5 +1,6 @@
 """LLM client: chat/JSON, speech-to-text, text-to-speech. Production = Alibaba Model Studio (DashScope, Qwen); LLM_PROVIDER=groq
 switches chat and speech-to-text to Groq (OpenAI-compatible, Whisper) for the demo. Groq has no text-to-speech.
+LLM_PROVIDER=ollama runs chat on a local Qwen model (Ollama's OpenAI-compatible API, no key, no cost); it has no speech at all.
 
 * LLM_MOCK=1 (or no key): no network. chat() returns MOCK_REPLY; every feature that calls a model checks enabled() first
   and uses its deterministic template instead.
@@ -118,6 +119,8 @@ def _asr_groq(audio: bytes, mime: str, glossary: list[str]) -> dict:
 def asr_call(audio: bytes, mime: str, glossary: list[str]) -> dict:
     """Speech to text with the selected provider (qwen-audio-3.0-asr-flash, or Whisper on Groq). The glossary (payee names) goes in as
     context. Returns {"text", "language"}. Neither model returns a confidence score."""
+    if settings.llm_provider == "ollama":
+        raise LLMError("Ollama has no speech-to-text")
     if settings.llm_provider == "groq":
         return _asr_groq(audio, mime, glossary)
     data = f"data:{mime};base64,{base64.b64encode(audio).decode()}"
