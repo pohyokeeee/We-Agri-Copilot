@@ -2,6 +2,7 @@ import { BALANCE, DAY_LIMIT, FAMILY_PIN, FARMER_PIN, freshApp, newPlan, SUPPLIER
 import { getLang, type Bi } from '../lib/i18n'
 import { N } from '../lib/format'
 import { appStore, uiStore } from './store'
+import { liveCancel, liveConfirm, liveDecline, liveDone, livePin, liveStartPayment } from './live'
 import type { AppState, Approval, Payee, PayInfo, Plan, PlanSpec, SheetState } from './types'
 
 /*
@@ -13,7 +14,7 @@ const BY_YOU: Bi = ['您确认的', 'Confirmed by you']
 const BY_BOTH: Bi = ['您和女儿确认的', 'Confirmed by you and your daughter']
 const t = (zh: string, en: string) => (getLang() === 'zh' ? zh : en)
 
-function log(s: AppState, zh: string, en: string, by: Bi | null) {
+export function log(s: AppState, zh: string, en: string, by: Bi | null) {
   s.clock += 3
   s.log.unshift({ t: `14:${String(s.clock).padStart(2, '0')}`, zh, en, by })
 }
@@ -27,11 +28,17 @@ export function openSheet(a: Approval) {
     u.sheet = { ...a, step: 'readback', pin: '', err: '', fam: false }
   })
 }
-export const closeSheet = () => uiStore.update((u) => void (u.sheet = null))
-export const sheetOk = () =>
+export const closeSheet = () => {
+  liveCancel(uiStore.get().sheet)
+  uiStore.update((u) => void (u.sheet = null))
+}
+export const sheetOk = () => {
+  const sheet = uiStore.get().sheet
+  if (sheet && liveConfirm(sheet)) return
   uiStore.update((u) => {
     if (u.sheet) u.sheet.step = u.sheet.tier === 'r' ? 'pin' : 'done'
   })
+}
 
 export function pressPin(d: string) {
   const sheet = uiStore.get().sheet
@@ -43,6 +50,7 @@ export function pressPin(d: string) {
     uiStore.update((u) => void (u.sheet && (u.sheet.pin = pin)))
     return
   }
+  if (sheet.live) return void livePin(sheet, pin)
   const right = pin === (sheet.fam ? FAMILY_PIN : FARMER_PIN)
   if (!right) {
     let locked = false
@@ -79,17 +87,18 @@ export function pressPin(d: string) {
   uiStore.update((u) => void (u.sheet && ((u.sheet.step = 'family'), (u.sheet.pin = ''), (u.sheet.err = ''))))
 }
 const approvalOf = (x: SheetState | Approval): Approval => ({
-  tier: x.tier, raised: x.raised, zh: x.zh, en: x.en, before: x.before, after: x.after, then: x.then, payInfo: x.payInfo,
+  tier: x.tier, raised: x.raised, zh: x.zh, en: x.en, before: x.before, after: x.after, then: x.then, payInfo: x.payInfo, live: x.live,
 })
 
 export function sheetDone() {
   const sheet = uiStore.get().sheet
   if (!sheet) return
+  if (sheet.live) return void liveDone(sheet)
   appStore.update((s) => applyDone(s, sheet))
   uiStore.update((u) => void (u.sheet = null))
 }
 
-function applyDone(s: AppState, a: Approval) {
+export function applyDone(s: AppState, a: Approval) {
   const by = a.tier === 'r' ? BY_BOTH : BY_YOU
   if (a.then === 'taxpot') {
     s.taxRule = true
@@ -148,6 +157,7 @@ export function famApprove() {
 export function famDecline() {
   const r = appStore.get().famReq
   if (!r) return
+  liveDecline(r)
   appStore.update((s) => {
     s.famPending = false
     s.famReq = null
@@ -269,6 +279,15 @@ export function startPayment(who: string, amt: number, purpose: Bi) {
   if (s.sentToday + amt > DAY_LIMIT) reasons.push(['一天超过1,000元', 'over 1,000 in a day'])
   const red = reasons.length > 0
   const info: PayInfo = { n: p.n, amt, what: purpose }
+  const base = {
+    zh: `给 ${p.n} 转 ${N(amt)} 元，用途：${purpose[0]}`,
+    en: `Send ${N(amt)} yuan to ${p.n} for ${purpose[1].toLowerCase()}`,
+    before: N(BALANCE - s.sentToday),
+    after: N(BALANCE - s.sentToday - amt),
+    then: 'paydone' as const,
+    payInfo: info,
+  }
+  if (liveStartPayment(p.n, amt, purpose, base)) return
   openSheet({
     tier: red ? 'r' : 'y',
     raised: red ? [reasons.map((r) => r[0]).join('、'), reasons.map((r) => r[1]).join(', ')] : null,

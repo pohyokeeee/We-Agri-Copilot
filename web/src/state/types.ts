@@ -70,6 +70,14 @@ export interface Approval {
   after?: string
   then: After
   payInfo?: PayInfo
+  /** Phase 2: the bank approval behind this sheet. Absent = a mock-only action. */
+  live?: LiveRef
+}
+
+/** Ties a sheet to the real bank approval and the transfer it unlocks. */
+export interface LiveRef {
+  approvalId: number
+  transfer?: { payee_id: number; amount: number; purpose: string }
 }
 
 export interface LogEntry {
