@@ -112,7 +112,7 @@ Proof: `tests/test_audit.py` (`test_append_links_rows_and_verifies`, `test_tampe
 | VAT boundary, forecast, policy matching | `tax/vat.py`, `analysis/*` | `test_vat.py`, `test_forecast.py`, `test_policy.py`, `test_analysis.py` |
 | Provider switch and offline fallback | `llm/qwen.py`, `config.py` | `test_provider.py`, `test_qwen_wiring.py` |
 
-The build plan's scripted evidence runs (E1–E16) are covered by these tests rather than by exported logs; there is no `make evidence`, no `E*.jsonl`, and no `EVIDENCE_INDEX.md` yet. Mapping: E2 `test_forecast.py`; E4–E6, E16 `test_bank.py`; E7 `test_analysis.py`; E8, E12 `test_agent.py`; E13 `test_bank.py` (decline, timeout); E9 `test_injection.py`; E10 `test_bank.py` and `test_injection.py`; E11 `test_qwen_wiring.py`; E14 `test_analysis.py`; E14b `test_injection.py`; E15 `test_policy.py`. **E1 (monthly spending report) and E3 (sandboxed question) have no implementation.**
+The build plan's scripted evidence runs (E1–E16) are exported as logs by `make evidence` (`evidence/runs/E*.jsonl`, `evidence/EVIDENCE_INDEX.md`) and are also covered by these tests. Mapping: E2 `test_forecast.py`; E4–E6, E16 `test_bank.py`; E7 `test_analysis.py`; E8, E12 `test_agent.py`; E13 `test_bank.py` (decline, timeout); E9 `test_injection.py`; E10 `test_bank.py` and `test_injection.py`; E11 `test_qwen_wiring.py`; E14 `test_analysis.py`; E14b `test_injection.py`; E15 `test_policy.py`. E1 (monthly spending report) and E3 (sandboxed question) were dropped from the scope.
 
 ## 14. Known risks
 

@@ -28,7 +28,7 @@ def _off(kind: str) -> HTTPException:
 @router.post("/asr")
 async def transcribe(request: Request, customer_id: int = 1, s: Session = Depends(get_session)):
     """Body = the raw audio bytes (Content-Type audio/mpeg from Taro's recorder, audio/wav, or audio/webm/ogg from a browser MediaRecorder)."""
-    if not qwen.enabled():
+    if not qwen.enabled() or not settings.llm_asr:  # no speech-to-text (mock mode, no key, or Ollama): the app asks for typing
         raise _off("asr")
     if int(request.headers.get("content-length") or 0) > MAX_AUDIO:
         raise HTTPException(413, "录音太长了")
@@ -62,7 +62,7 @@ class TtsIn(BaseModel):
 async def speak(body: TtsIn):
     """The clip starts with 元农民助手：. Returns where to fetch it; the second call for the same text is a cache hit.
     204 when the selected provider has no speech synthesis (Groq): the app then shows the reply as large text instead."""
-    if settings.llm_provider == "groq":
+    if settings.llm_provider in ("groq", "ollama"):
         return Response(status_code=204)
     started = time.time()
     try:

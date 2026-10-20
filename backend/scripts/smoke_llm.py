@@ -3,7 +3,7 @@
     cd backend && python scripts\\smoke_llm.py        (or:  python -m scripts.smoke_llm)
     python scripts\\smoke_llm.py --dry                (show what would be called; no network)
 
-LLM_PROVIDER in .env picks the provider (dashscope = Qwen, groq = demo stand-in). The script forces LLM_MOCK=0, never prints a key
+LLM_PROVIDER in .env picks the provider (dashscope = Qwen, groq = demo stand-in, ollama = local Qwen, chat only). The script forces LLM_MOCK=0, never prints a key
 (error text is scrubbed), lists the provider's models and WARNs when a configured model id is not among them.
 """
 import io
@@ -48,7 +48,7 @@ def check(name: str, fn) -> None:
 
 
 def wanted() -> dict[str, str]:
-    ids = {"planner": settings.llm_planner, "classifier": settings.llm_classifier, "asr": settings.llm_asr}
+    ids = {"planner": settings.llm_planner, "classifier": settings.llm_classifier, **({"asr": settings.llm_asr} if settings.llm_asr else {})}
     return {**ids, "tts": settings.qwen_tts} if DASHSCOPE else ids
 
 
@@ -125,8 +125,11 @@ def main() -> int:
     if DASHSCOPE:
         check(f"text-to-speech {settings.qwen_tts}", speak)
     else:
-        report("SKIP", "text-to-speech", time.time(), "Groq has no TTS: /voice/tts answers 204 and the app shows the reply as text")
-    check(f"speech-to-text {settings.llm_asr}", listen)
+        report("SKIP", "text-to-speech", time.time(), f"{settings.provider_name} has no TTS: /voice/tts answers 204 and the app shows the reply as text")
+    if settings.llm_asr:
+        check(f"speech-to-text {settings.llm_asr}", listen)
+    else:
+        report("SKIP", "speech-to-text", time.time(), f"{settings.provider_name} has no ASR: /voice/asr answers 503 and the app asks for typing")
     print(f"\n{'ALL OK' if not state['failures'] else str(state['failures']) + ' FAILED'}")
     return 1 if state["failures"] else 0
 

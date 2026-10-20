@@ -150,6 +150,41 @@ def test_dashscope_tts_still_works_when_the_provider_is_dashscope(monkeypatch, c
     assert r.status_code == 200 and r.json()["spoken_text"] == "元农民助手：你好"
 
 
+# ---------- ollama: a local Qwen model, chat only ----------
+@pytest.fixture
+def ollama(monkeypatch):
+    monkeypatch.setattr(settings, "llm_provider", "ollama")
+    monkeypatch.setattr(settings, "dashscope_api_key", "sk-dashscope-test-not-real")  # set, to prove it is never sent to the local server
+    monkeypatch.setattr(settings, "llm_mock", False)
+
+
+def test_ollama_selects_the_local_server_and_needs_no_key():
+    s = Settings(_env_file=None, llm_provider="ollama", dashscope_api_key="sk-y")
+    assert (s.provider_name, s.llm_base_url, s.llm_planner, s.llm_classifier, s.llm_asr) == (
+        "Ollama", "http://localhost:11434/v1", "qwen2.5:7b", "qwen2.5:7b", "")
+    assert s.llm_key == "ollama"  # a placeholder, never the DashScope key
+
+
+def test_ollama_chat_uses_the_local_models(ollama, monkeypatch):
+    made = []
+    monkeypatch.setattr("openai.OpenAI", lambda **kw: made.append(kw) or SimpleNamespace())
+    qwen._openai()
+    assert made[0]["base_url"] == "http://localhost:11434/v1" and made[0]["api_key"] == "ollama"
+    s = script(monkeypatch, GOOD_TRANSFER)
+    dag, source = planner.plan(TRANSFER)
+    assert source == "qwen2.5:7b (attempt 1)" and dag.node("T2").base_tier == "yellow"  # validation unchanged
+    assert [c["model"] for c in s.calls] == ["qwen2.5:7b"]
+
+
+def test_ollama_has_no_speech(ollama, monkeypatch, client):
+    monkeypatch.setattr(qwen, "tts_call", lambda text: pytest.fail("Ollama has no TTS: nothing should be called"))
+    assert client.post("/voice/tts", json={"text": "你好"}).status_code == 204
+    r = post_audio(client)
+    assert r.status_code == 503 and r.json()["detail"] == "语音识别现在用不了，请直接打字。"
+    with pytest.raises(qwen.LLMError, match="Ollama has no speech-to-text"):
+        qwen.asr_call(MP3, "audio/mpeg", [])
+
+
 # ---------- the smoke script ----------
 @pytest.mark.parametrize("script_name", ["smoke_llm.py", "smoke_qwen.py"])
 @pytest.mark.parametrize("provider", ["dashscope", "groq"])

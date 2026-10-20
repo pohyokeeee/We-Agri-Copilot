@@ -15,14 +15,18 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite:///{(BACKEND_DIR / 'data' / 'app.db').as_posix()}"
     checkpoint_db: str = (BACKEND_DIR / "data" / "checkpoints.db").as_posix()
 
-    # which OpenAI-compatible provider answers chat and speech-to-text. dashscope = Qwen (production); groq = stand-in for the demo.
-    # Each provider has its own key: a key is never sent to the other provider.
-    llm_provider: Literal["dashscope", "groq"] = "dashscope"
+    # which OpenAI-compatible provider answers chat and speech-to-text. dashscope = Qwen (production); groq = stand-in for the demo;
+    # ollama = a Qwen model on this machine (free, chat only: no speech). Each provider has its own key: a key is never sent to the other provider.
+    llm_provider: Literal["dashscope", "groq", "ollama"] = "dashscope"
     groq_api_key: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
     groq_planner: str = "openai/gpt-oss-120b"
     groq_classifier: str = "openai/gpt-oss-20b"
     groq_asr: str = "whisper-large-v3-turbo"
+
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_planner: str = "qwen2.5:7b"
+    ollama_classifier: str = "qwen2.5:7b"  # same model as the planner: a second one would not fit next to it in a 6 GB GPU
 
     dashscope_api_key: str = ""
     dashscope_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
@@ -51,27 +55,29 @@ class Settings(BaseSettings):
     # the selected provider's values: the rest of the code reads these, never the per-provider fields
     @property
     def provider_name(self) -> str:
-        return "Groq" if self.llm_provider == "groq" else "DashScope"
+        return {"groq": "Groq", "ollama": "Ollama"}.get(self.llm_provider, "DashScope")
 
     @property
     def llm_key(self) -> str:
+        if self.llm_provider == "ollama":
+            return "ollama"  # a local server needs no key; the OpenAI client only wants a non-empty string
         return self.groq_api_key if self.llm_provider == "groq" else self.dashscope_api_key
 
     @property
     def llm_base_url(self) -> str:
-        return self.groq_base_url if self.llm_provider == "groq" else self.dashscope_base_url
+        return {"groq": self.groq_base_url, "ollama": self.ollama_base_url}.get(self.llm_provider, self.dashscope_base_url)
 
     @property
     def llm_planner(self) -> str:
-        return self.groq_planner if self.llm_provider == "groq" else self.qwen_planner
+        return {"groq": self.groq_planner, "ollama": self.ollama_planner}.get(self.llm_provider, self.qwen_planner)
 
     @property
     def llm_classifier(self) -> str:
-        return self.groq_classifier if self.llm_provider == "groq" else self.qwen_classifier
+        return {"groq": self.groq_classifier, "ollama": self.ollama_classifier}.get(self.llm_provider, self.qwen_classifier)
 
     @property
     def llm_asr(self) -> str:
-        return self.groq_asr if self.llm_provider == "groq" else self.qwen_asr
+        return {"groq": self.groq_asr, "ollama": ""}.get(self.llm_provider, self.qwen_asr)  # Ollama has no speech-to-text
 
 
 settings = Settings()
