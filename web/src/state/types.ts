@@ -133,5 +133,7 @@ export interface UiState {
   drawer: boolean
   tipSeen: boolean
   ask: 'confirm' | null
+  /** what the microphone heard, shown in the confirm strip; null = the Phase 1 stand-in sentence */
+  heard: string | null
   answer: string | null
 }
