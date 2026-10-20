@@ -35,6 +35,23 @@ Principle: **LLMs plan and explain; deterministic code computes.** The LLM never
 results or payees. Non-green bank actions return `202` + an approval; they execute only with a single-use token
 bound to that exact request (PIN, plus co-signer when the customer has protection mode and the tier is red).
 
+## Live demo (Render)
+
+The Docker image at the repo root serves the website and the API from one URL (`/api/...`; the old paths still work for the Mini Program).
+
+Deploy: push the repo to GitHub, in Render choose **New > Blueprint**, pick the repo (it reads `render.yaml`: one free web service, Singapore),
+then fill in the environment variables in the dashboard: `LLM_PROVIDER=groq`, `GROQ_API_KEY`, `GROQ_PLANNER`, `GROQ_CLASSIFIER`, `GROQ_ASR`,
+`LLM_MOCK=0`, `DEMO_PUBLIC=1`, `DEMO_TODAY=2026-07-25`. Check `https://<your-service>.onrender.com/health`.
+
+With `DEMO_PUBLIC=1` the service shows a "演示环境 · 模拟账户 · 数据会重置" banner, turns off `/docs` and CORS, allows `POST /demo/reset`, and limits paid model
+calls (20 per minute per IP, 500 per day; past that, answers come from fixed templates). The database is rebuilt on every start.
+
+Things to know:
+- The free instance sleeps when idle: the first load after a pause takes about a minute.
+- The site can be slow or unreachable from mainland China. **The video is the primary demo**; the live link is a backup for judges outside China.
+- Run locally with no key: `LLM_MOCK=1`. Backend: `cd backend && python -m seed.seed && uvicorn app.main:app`; website: `cd web && npm run dev`
+  (or build it with `npm run build` and the backend serves it at http://localhost:8000). Or `docker build -t wac . && docker run -p 8000:8000 -e LLM_MOCK=1 wac`.
+
 ## Quick start (Windows)
 
 Double-click, or run from a terminal in the repo folder (paths with spaces are fine). Needs Python 3.12 (`py -3.12`) and Node 20.

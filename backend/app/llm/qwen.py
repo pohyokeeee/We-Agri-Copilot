@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.config import settings
+from app.demo_limit import allowed
 
 log = logging.getLogger("qwen")
 MOCK_REPLY = "[mock llm reply]"
@@ -69,6 +70,8 @@ def chat(messages: list[dict], model: str | None = None, json_mode: bool = False
     cache = Path(settings.llm_cache_dir) / f"{key}.txt"
     if cache.exists():
         return cache.read_text(encoding="utf-8")
+    if not allowed():
+        raise LLMError("demo budget used up")
     text = _complete(messages, model, json_mode)
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(text, encoding="utf-8")
@@ -118,6 +121,8 @@ def _asr_groq(audio: bytes, mime: str, glossary: list[str]) -> dict:
 def asr_call(audio: bytes, mime: str, glossary: list[str]) -> dict:
     """Speech to text with the selected provider (qwen-audio-3.0-asr-flash, or Whisper on Groq). The glossary (payee names) goes in as
     context. Returns {"text", "language"}. Neither model returns a confidence score."""
+    if not allowed():
+        raise LLMError("demo budget used up")
     if settings.llm_provider == "groq":
         return _asr_groq(audio, mime, glossary)
     data = f"data:{mime};base64,{base64.b64encode(audio).decode()}"
@@ -145,6 +150,8 @@ def tts_call(text: str) -> bytes:
     """qwen3-tts-flash through the native endpoint: it answers with a short-lived audio URL, which we download."""
     if settings.llm_provider != "dashscope":
         raise LLMError(f"{settings.provider_name} has no text-to-speech")
+    if not allowed():
+        raise LLMError("demo budget used up")
     try:
         r = httpx.post(_native_url(), headers={"Authorization": f"Bearer {settings.dashscope_api_key}"}, timeout=settings.llm_timeout,
                        json={"model": settings.qwen_tts, "input": {"text": text, "voice": settings.tts_voice, "language_type": "Chinese"}})

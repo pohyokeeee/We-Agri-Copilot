@@ -16,10 +16,20 @@ export function beginAction(): void {
   activeTrace = `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
 }
 
+// The server sets X-Demo-Notice when the public demo's model budget ran out and a template answered instead.
+let limited = false
+const watchers = new Set<() => void>()
+export const demoLimited = () => limited
+export const onDemoLimited = (l: () => void) => (watchers.add(l), () => void watchers.delete(l))
+
 export async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, data?: object): Promise<T> {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (activeTrace) headers['X-Trace-Id'] = activeTrace
   const res = await fetch(API_BASE + path, { method, headers, body: data ? JSON.stringify(data) : undefined })
+  if (!limited && res.headers.get('x-demo-notice')) {
+    limited = true
+    watchers.forEach((l) => l())
+  }
   const body = res.status === 204 ? '' : await res.json().catch(() => ({}))
   // 202 = "approval needed": a normal answer, not an error
   if (res.status >= 400) throw new ApiError(res.status, body)
@@ -81,7 +91,7 @@ export interface TraceDetail { trace_id: string; summary_zh: string; status: str
 export const COSIGNER_ID = 2
 
 export const api = {
-  health: () => request<{ status: string }>('GET', '/health'),
+  health: () => request<{ status: string; demo?: boolean }>('GET', '/health'),
   balance: () => request<Balance>('GET', '/bank/balance'),
   securityStatus: () => request<SecurityStatus>('GET', '/bank/security/status'),
   payees: (q = '') => request<BankPayee[]>('GET', `/bank/payees?q=${encodeURIComponent(q)}`),

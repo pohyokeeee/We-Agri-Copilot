@@ -1,0 +1,25 @@
+# Render Blueprint: one free web service (backend + website). Values are set in the Render dashboard, never in this file.
+services:
+  - type: web
+    name: we-agri-copilot
+    runtime: docker
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+    envVars:
+      - key: LLM_PROVIDER
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_PLANNER
+        sync: false
+      - key: GROQ_CLASSIFIER
+        sync: false
+      - key: GROQ_ASR
+        sync: false
+      - key: LLM_MOCK
+        sync: false
+      - key: DEMO_PUBLIC
+        sync: false
+      - key: DEMO_TODAY
+        sync: false

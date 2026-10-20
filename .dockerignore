@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+!.env.example
+**/node_modules
+**/.venv
+**/__pycache__
+**/.pytest_cache
+backend/data/*.db
+backend/data/llm_cache
+backend/data/tts_cache
+web/dist
+miniprogram
+docs
+evidence

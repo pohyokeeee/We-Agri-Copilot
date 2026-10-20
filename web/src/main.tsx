@@ -5,15 +5,15 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './styles/index.css'
-import { initLive } from './state/live'
-
-void initLive() // no backend = the Phase 1 mock path keeps working
+import { DemoGate } from './components/DemoGate'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ErrorBoundary>
-        <App />
+        <DemoGate>
+          <App />
+        </DemoGate>
       </ErrorBoundary>
     </BrowserRouter>
     {/* Visual feedback toolbar: development only, never in the production build */}
