@@ -2,7 +2,7 @@ import { BALANCE, DAY_LIMIT, FAMILY_PIN, FARMER_PIN, freshApp, newPlan, SUPPLIER
 import { getLang, type Bi } from '../lib/i18n'
 import { N } from '../lib/format'
 import { appStore, uiStore } from './store'
-import { liveCancel, liveConfirm, liveDecline, liveDone, livePin, liveStartPayment } from './live'
+import { liveCancel, liveConfirm, liveDecline, liveDone, livePin, liveStartGated, liveStartPayment, liveWithdraw } from './live'
 import type { AppState, Approval, Payee, PayInfo, Plan, PlanSpec, SheetState } from './types'
 
 /*
@@ -24,6 +24,7 @@ export const planOpen = (p: Plan | null) => !!p && (p.status === 'waiting' || p.
 
 /* ---------------- confirmation sheet ---------------- */
 export function openSheet(a: Approval) {
+  if (liveStartGated(a)) return
   uiStore.update((u) => {
     u.sheet = { ...a, step: 'readback', pin: '', err: '', fam: false }
   })
@@ -243,11 +244,13 @@ export function submitLoan() {
   const a = appStore.get().app.amount
   openSheet({ tier: 'r', raised: null, zh: `把${N(a)}元贷款申请（惠农流动贷A）正式发给模拟银行`, en: `Send the ${N(a)} yuan Agri loan A application to the mock bank`, then: 'submit' })
 }
-export const withdrawLoan = () =>
+export const withdrawLoan = () => {
+  liveWithdraw()
   appStore.update((s) => {
     s.app.loan = 'none'
     log(s, '撤回了贷款申请', 'Withdrew the loan application', BY_YOU)
   })
+}
 export const docsSent = () =>
   appStore.update((s) => {
     s.app.loan = 'submitted'

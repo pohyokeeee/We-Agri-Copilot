@@ -78,6 +78,8 @@ export interface Approval {
 export interface LiveRef {
   approvalId: number
   transfer?: { payee_id: number; amount: number; purpose: string }
+  /** loan draft: the amount to pre-fill */
+  amount?: number
 }
 
 export interface LogEntry {
@@ -105,6 +107,8 @@ export interface AppState {
   season: { pct: number; off: string[] }
   plan: Plan | null
   visited: boolean
+  /** Phase 2: id of the loan draft at the bank, once one exists */
+  loanId?: number
   /** a message every farmer window shows until dismissed (e.g. the daughter declined) */
   notice: { zh: string; en: string; retry?: string } | null
 }

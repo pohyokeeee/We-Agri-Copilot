@@ -67,5 +67,11 @@ export const api = {
   cosignPending: () => request<CosignRequest[]>('GET', `/cosign/pending?cosigner_id=${COSIGNER_ID}`),
   cosignApprove: (id: number, pin: string) => request<CosignRequest>('POST', `/cosign/${id}/approve`, { cosigner_id: COSIGNER_ID, pin }),
   cosignDecline: (id: number) => request<CosignRequest>('POST', `/cosign/${id}/decline`, { cosigner_id: COSIGNER_ID }),
+  createRule: (token?: string) => request<Approval | { status: 'created'; rule_id: number }>('POST', '/bank/reserves/rules', token ? { approval_token: token } : {}),
+  createDraft: (b: { product_id: number; amount: number }, token?: string) =>
+    request<Approval | { application_id: number; status: string }>('POST', '/bank/financing/applications', token ? { ...b, approval_token: token } : b),
+  submitApplication: (id: number, token?: string) =>
+    request<Approval | { application_id: number; status: string }>('POST', `/bank/financing/applications/${id}/submit`, token ? { approval_token: token } : {}),
+  withdrawApplication: (id: number) => request<{ status: string }>('DELETE', `/bank/financing/applications/${id}`),
   demoReset: () => request<{ status: string }>('POST', '/demo/reset'),
 }

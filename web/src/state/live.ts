@@ -4,13 +4,14 @@ import { getLang } from '../lib/i18n'
 import { N } from '../lib/format'
 import { applyDone } from './actions'
 import { appStore, uiStore } from './store'
-import type { Approval, SheetState, TierKey } from './types'
+import type { Approval, LiveRef, SheetState, TierKey } from './types'
 
 /*
  * Phase 2 bridge. When the backend answers /health, money actions go through the real bank approval chain
  * (transfer -> confirm -> PIN -> co-sign -> token -> execute). When it does not, every function here returns
  * "not mine" and the Phase 1 mock path in actions.ts runs unchanged, so UI work never depends on the server.
  */
+const LOAN_PRODUCT = 1 // 惠农流动贷 A
 let isLive = false
 let payeeIds = new Map<string, number>()
 export const live = () => isLive
@@ -56,19 +57,16 @@ function fail(e: unknown) {
 }
 
 /* ---------------- payment ---------------- */
-/** Returns true when the live path took the action. */
-export function liveStartPayment(who: string, amt: number, purpose: readonly [string, string], base: Omit<Approval, 'tier' | 'raised' | 'live'>): boolean {
-  const id = payeeIds.get(who)
-  if (!isLive || id === undefined) return false // typed-in payees have no bank record: mock path
-  const body: TransferBody = { payee_id: id, amount: amt, purpose: purpose[0] }
+type Base = Omit<Approval, 'tier' | 'raised' | 'live'>
+
+/** Ask the bank for an approval and open the sheet with the bank's own tier and reasons. */
+function begin(base: Base, call: () => Promise<BankApproval>, ref: Omit<LiveRef, 'approvalId'>) {
   beginAction()
-  api
-    .startTransfer(body)
+  call()
     .then((ap) => {
-      const red = ap.tier === 'red'
-      const raised: [string, string] | null = red && ap.reasons.length ? [ap.reasons_zh.join('、'), ap.reasons.join(', ')] : null
+      const raised: [string, string] | null = ap.tier === 'red' && ap.reasons.length ? [ap.reasons_zh.join('、'), ap.reasons.join(', ')] : null
       uiStore.update((u) => {
-        u.sheet = { ...base, tier: tierKey(ap.tier), raised, live: { approvalId: ap.approval_id, transfer: body }, step: 'readback', pin: '', err: '', fam: false }
+        u.sheet = { ...base, tier: tierKey(ap.tier), raised, live: { ...ref, approvalId: ap.approval_id }, step: 'readback', pin: '', err: '', fam: false }
       })
     })
     .catch((e) => {
@@ -77,6 +75,29 @@ export function liveStartPayment(who: string, amt: number, purpose: readonly [st
       })
       fail(e)
     })
+}
+
+/** Returns true when the live path took the action. */
+export function liveStartPayment(who: string, amt: number, purpose: readonly [string, string], base: Base): boolean {
+  const id = payeeIds.get(who)
+  if (!isLive || id === undefined) return false // typed-in payees have no bank record: mock path
+  const body: TransferBody = { payee_id: id, amount: amt, purpose: purpose[0] }
+  begin(base, () => api.startTransfer(body) as Promise<BankApproval>, { transfer: body })
+  return true
+}
+
+/** Tax pot rule, loan draft, loan submit: the same chain, a different call at the end. */
+export function liveStartGated(base: Base): boolean {
+  if (!isLive) return false
+  if (base.then === 'taxpot') begin(base, () => api.createRule() as Promise<BankApproval>, {})
+  else if (base.then === 'prefill') {
+    const amount = appStore.get().borrow
+    begin(base, () => api.createDraft({ product_id: LOAN_PRODUCT, amount }) as Promise<BankApproval>, { amount })
+  } else if (base.then === 'submit') {
+    const id = appStore.get().loanId
+    if (id === undefined) return false
+    begin(base, () => api.submitApplication(id) as Promise<BankApproval>, {})
+  } else return false
   return true
 }
 
@@ -133,15 +154,39 @@ export function liveDone(sheet: SheetState) {
     uiStore.update((u) => void (u.sheet = null))
     void syncBank()
   }
-  if (!ref.transfer) return finish(sheet)
-  api
-    .approval(ref.approvalId)
-    .then((ap) => {
+  const token = () =>
+    api.approval(ref.approvalId).then((ap) => {
       if (!ap.approval_token) throw new ApiError(409, { detail: t('还没有全部确认', 'Not fully approved yet') })
-      return api.executeTransfer(ref.transfer!, ap.approval_token)
+      return ap.approval_token
     })
-    .then((r) => finish({ ...sheet, before: N(r.balance_before), after: N(r.balance_after) }))
-    .catch(fail)
+  if (sheet.then === 'paydone' && ref.transfer) {
+    token()
+      .then((tk) => api.executeTransfer(ref.transfer!, tk))
+      .then((r) => finish({ ...sheet, before: N(r.balance_before), after: N(r.balance_after) }))
+      .catch(fail)
+  } else if (sheet.then === 'taxpot') {
+    token().then((tk) => api.createRule(tk)).then(() => finish(sheet)).catch(fail)
+  } else if (sheet.then === 'prefill' && ref.amount !== undefined) {
+    token()
+      .then((tk) => api.createDraft({ product_id: LOAN_PRODUCT, amount: ref.amount! }, tk))
+      .then((r) => {
+        appStore.update((s) => void (s.loanId = (r as { application_id: number }).application_id))
+        finish(sheet)
+      })
+      .catch(fail)
+  } else if (sheet.then === 'submit') {
+    const id = appStore.get().loanId
+    if (id === undefined) return finish(sheet)
+    token().then((tk) => api.submitApplication(id, tk)).then(() => finish(sheet)).catch(fail)
+  } else finish(sheet)
+}
+
+/** Withdraw the draft at the bank too; the screen has already changed. */
+export function liveWithdraw() {
+  const id = appStore.get().loanId
+  if (!isLive || id === undefined) return
+  api.withdrawApplication(id).catch(() => {})
+  appStore.update((s) => void (s.loanId = undefined))
 }
 
 export function liveCancel(sheet: SheetState | null) {
