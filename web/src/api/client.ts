@@ -69,6 +69,15 @@ export interface AgentView {
   pending: { node_id: string; readback_zh: string } | null
 }
 
+export interface TraceSummary { trace_id: string; summary_zh: string; status: string; steps: number; started_at: string; last_at: string }
+export interface TraceStep {
+  seq: number; ts: string; actor: string; event: string; event_zh: string
+  tier_base: TierName | null; tier_final: TierName | null; reasons_zh: string[]
+  approval: { method: string | null; result: string | null } | null
+  balance_before: number | null; balance_after: number | null; hash: string
+}
+export interface TraceDetail { trace_id: string; summary_zh: string; status: string; utterance: string | null; steps: TraceStep[] }
+
 export const COSIGNER_ID = 2
 
 export const api = {
@@ -97,5 +106,12 @@ export const api = {
   agentMessage: (sessionId: string, text: string) => request<AgentView>('POST', '/agent/message', { session_id: sessionId, text }),
   agentApprove: (sessionId: string, nodeId: string, token: string) => request<AgentView>('POST', '/agent/approve', { session_id: sessionId, node_id: nodeId, token }),
   agentCommand: (sessionId: string, command: AgentCommand) => request<AgentView>('POST', '/agent/command', { session_id: sessionId, command }),
+  traceRecent: (limit = 12) => request<TraceSummary[]>('GET', `/trace/recent?limit=${limit}`),
+  trace: (id: string) => request<TraceDetail>('GET', `/trace/${encodeURIComponent(id)}`),
+  auditVerify: () => request<{ ok: boolean; rows_checked: number; first_broken_id: number | null }>('GET', '/audit/verify'),
+  demoSuspicious: () => request<{ new: number; locked: boolean }>('POST', '/bank/demo/orders/import-suspicious'),
+  demoPayout: () => request<{ amount: number; moved: number; pot_total: number; balance_before: number; balance_after: number }>('POST', '/bank/demo/payouts', { income_class: 'resale' }),
+  lock: () => request<{ locked: boolean }>('POST', '/bank/security/lock', {}),
+  unlock: (token?: string) => request<Approval | { locked: boolean }>('POST', '/bank/security/unlock', token ? { approval_token: token } : {}),
   demoReset: () => request<{ status: string }>('POST', '/demo/reset'),
 }

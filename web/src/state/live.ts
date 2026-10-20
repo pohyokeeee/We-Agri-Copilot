@@ -1,8 +1,9 @@
+import { useSyncExternalStore } from 'react'
 import { api, ApiError, beginAction, type Approval as BankApproval, type TransferBody } from '../api/client'
 import { BALANCE } from '../data/mock'
 import { getLang } from '../lib/i18n'
 import { N } from '../lib/format'
-import { applyDone } from './actions'
+import { applyDone, log } from './actions'
 import { liveNodeDone } from './livePlan'
 import { appStore, uiStore } from './store'
 import type { Approval, LiveRef, SheetState, TierKey } from './types'
@@ -16,6 +17,17 @@ const LOAN_PRODUCT = 1 // 惠农流动贷 A
 let isLive = false
 let payeeIds = new Map<string, number>()
 export const live = () => isLive
+const listeners = new Set<() => void>()
+const setLive = (v: boolean) => {
+  isLive = v
+  listeners.forEach((l) => l())
+}
+/** Re-renders when the backend comes (or goes). */
+export const useLive = () =>
+  useSyncExternalStore(
+    (l) => (listeners.add(l), () => void listeners.delete(l)),
+    () => isLive,
+  )
 const t = (zh: string, en: string) => (getLang() === 'zh' ? zh : en)
 const tierKey = (x: BankApproval['tier']): TierKey => (x === 'red' ? 'r' : x === 'yellow' ? 'y' : 'g')
 
@@ -25,10 +37,10 @@ export async function initLive(): Promise<boolean> {
     await api.health()
     const payees = await api.payees()
     payeeIds = new Map(payees.map((p) => [p.name, p.id]))
-    isLive = true
+    setLive(true)
     await syncBank()
   } catch {
-    isLive = false
+    setLive(false)
   }
   return isLive
 }
@@ -207,6 +219,48 @@ export function liveWithdraw() {
   if (!isLive || id === undefined) return
   api.withdrawApplication(id).catch(() => {})
   appStore.update((s) => void (s.loanId = undefined))
+}
+
+/* ---------------- judge scenario controls ---------------- */
+/** The outside events, done at the bank. The mock state change in actions.ts still runs; syncBank then settles on the bank's truth. */
+export function liveScenario(v: string) {
+  if (!isLive) return
+  beginAction()
+  const run = async () => {
+    if (v === 'reset') await api.demoReset()
+    else if (v === 'suspicious') await api.demoSuspicious()
+    else if (v === 'lock') await api.lock()
+    else if (v === 'unlock') await judgeUnlock()
+  }
+  run()
+    .catch(() => {})
+    .finally(() => void syncBank())
+}
+
+/** Unlocking is red and needs the co-signer even with the PIN: for the judge this runs the daughter's step with her test PIN. */
+async function judgeUnlock() {
+  const ap = (await api.unlock()) as BankApproval
+  const list = await api.cosignPending()
+  const c = list.find((x) => x.approval_id === ap.approval_id)
+  if (c) await api.cosignApprove(c.id, '654321')
+  const done = await api.approval(ap.approval_id)
+  if (done.approval_token) await api.unlock(done.approval_token)
+}
+
+/** A resale payout arrives (the tax pot rule acts on it if it is on). */
+export async function liveResalePayout() {
+  beginAction()
+  const r = await api.demoPayout()
+  appStore.update((s) => {
+    const moved = Math.round(r.moved)
+    log(
+      s,
+      `收到一笔转卖货款 ${N(r.amount)} 元` + (moved ? `，自动留了 ${N(moved)} 元到税金罐` : ''),
+      `Resale payout of ${N(r.amount)} yuan arrived` + (moved ? `; ${N(moved)} moved to the tax pot` : ''),
+      ['模拟平台', 'Simulated platform'],
+    )
+  })
+  await syncBank()
 }
 
 export function liveCancel(sheet: SheetState | null) {

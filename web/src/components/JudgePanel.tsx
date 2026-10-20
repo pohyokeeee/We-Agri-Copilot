@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useBi, useT } from '../lib/i18n'
 import { scenario } from '../state/actions'
+import { useLive } from '../state/live'
+import { LiveAudit, LiveScenario, LiveTrace } from './JudgeLive'
 import { uiStore, useApp } from '../state/store'
 
 const ROWS = [
@@ -18,6 +20,7 @@ const ROWS = [
 export function JudgePanel({ full }: { full?: boolean }) {
   const t = useT()
   const bi = useBi()
+  const isLive = useLive()
   const [tab, setTab] = useState<'trace' | 'audit' | 'scn'>('trace')
   const locked = useApp((s) => s.locked)
   const loan = useApp((s) => s.app.loan)
@@ -53,7 +56,8 @@ export function JudgePanel({ full }: { full?: boolean }) {
         ))}
       </div>
 
-      {tab === 'trace' && (
+      {tab === 'trace' && isLive && <LiveTrace />}
+      {tab === 'trace' && !isLive && (
         <>
           <div className="list">
             {[
@@ -119,7 +123,8 @@ export function JudgePanel({ full }: { full?: boolean }) {
         </>
       )}
 
-      {tab === 'audit' && (
+      {tab === 'audit' && isLive && <LiveAudit />}
+      {tab === 'audit' && !isLive && (
         <div className="card em">
           <div className="mid">✓ {t('审计链完整', 'Audit chain intact')}</div>
           <div className="small">{t('已检查 412 行 · 第一个断点：无', '412 rows checked · first break: none')}</div>
@@ -143,6 +148,7 @@ export function JudgePanel({ full }: { full?: boolean }) {
               <Op v="docs" title={t('银行要补材料', 'Bank asks for a document')} sub={t('要近3个月平台收入截图', 'Asks for 3 months of platform income')} />
             </>
           )}
+          {isLive && <LiveScenario />}
           {loan === 'approved' && <Op v="payout" title={t('放款到账', 'Pay out the loan')} sub={t('钱进入农户账户', 'Money reaches the farmer’s account')} />}
         </div>
       )}

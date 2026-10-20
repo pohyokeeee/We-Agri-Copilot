@@ -3,7 +3,7 @@ import { getLang, type Bi } from '../lib/i18n'
 import { N } from '../lib/format'
 import { appStore, uiStore } from './store'
 import { liveApproveNode, liveCmd, liveStartPlan } from './livePlan'
-import { liveCancel, liveConfirm, liveDecline, liveDone, livePin, liveStartGated, liveStartPayment, liveWithdraw } from './live'
+import { liveCancel, liveConfirm, liveDecline, liveDone, livePin, liveScenario, liveStartGated, liveStartPayment, liveWithdraw } from './live'
 import type { AppState, Approval, Payee, PayInfo, Plan, PlanSpec, SheetState } from './types'
 
 /*
@@ -326,6 +326,7 @@ export const handToHuman = () => {
 
 /* ---------------- judge scenario controls ---------------- */
 export function scenario(v: 'reset' | 'suspicious' | 'unlock' | 'approve' | 'docs' | 'payout' | 'lock') {
+  liveScenario(v)
   if (v === 'reset') {
     appStore.replace(freshApp())
     uiStore.update((u) => {
