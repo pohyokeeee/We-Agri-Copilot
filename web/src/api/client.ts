@@ -48,6 +48,27 @@ export interface Balance { balance: number; reserved: number; available: number 
 export interface SecurityStatus { locked: boolean; reason: string; message_zh: string }
 export interface TransferBody { payee_id: number; amount: number; purpose: string }
 
+export type AgentCommand = '等一下' | '继续' | '贷款先不要' | '算了' | '找人工'
+export interface AgentNode {
+  id: string
+  tool: string
+  label_zh: string
+  status: string
+  tier: TierName
+  tier_base: TierName
+  summary_zh: string
+  error: string
+  approval: { approval_id: number; status: string; next: string; tier: TierName; reasons_zh: string[] } | null
+}
+export interface AgentView {
+  status: string
+  utterance?: string
+  notice_zh?: string
+  reply_zh?: string
+  nodes: AgentNode[]
+  pending: { node_id: string; readback_zh: string } | null
+}
+
 export const COSIGNER_ID = 2
 
 export const api = {
@@ -73,5 +94,8 @@ export const api = {
   submitApplication: (id: number, token?: string) =>
     request<Approval | { application_id: number; status: string }>('POST', `/bank/financing/applications/${id}/submit`, token ? { approval_token: token } : {}),
   withdrawApplication: (id: number) => request<{ status: string }>('DELETE', `/bank/financing/applications/${id}`),
+  agentMessage: (sessionId: string, text: string) => request<AgentView>('POST', '/agent/message', { session_id: sessionId, text }),
+  agentApprove: (sessionId: string, nodeId: string, token: string) => request<AgentView>('POST', '/agent/approve', { session_id: sessionId, node_id: nodeId, token }),
+  agentCommand: (sessionId: string, command: AgentCommand) => request<AgentView>('POST', '/agent/command', { session_id: sessionId, command }),
   demoReset: () => request<{ status: string }>('POST', '/demo/reset'),
 }

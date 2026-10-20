@@ -11,6 +11,9 @@ export interface PlanNode {
   sum?: Bi
   raise?: Bi
   loan?: boolean
+  /** Phase 2: the bank approval waiting on this step, and the read-back sentence the bank wrote for it */
+  ap?: number
+  read?: string
 }
 export interface Plan {
   status: 'waiting' | 'paused' | 'cancelled' | 'handover' | 'done'
@@ -20,6 +23,8 @@ export interface Plan {
   /** climate/cash plans: short name of what the cash is for, and the loan amount pre-filled in the loan step */
   title?: Bi
   borrow?: number
+  /** Phase 2: the agent session behind this plan */
+  sid?: string
 }
 
 /** What the Season page hands to `startPlan` for the climate / generic-cash plans. All amounts in yuan. */
@@ -80,6 +85,8 @@ export interface LiveRef {
   transfer?: { payee_id: number; amount: number; purpose: string }
   /** loan draft: the amount to pre-fill */
   amount?: number
+  /** a plan step: approving it hands the token back to the agent */
+  node?: { sid: string; nodeId: string }
 }
 
 export interface LogEntry {

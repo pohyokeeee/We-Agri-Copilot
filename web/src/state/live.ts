@@ -3,6 +3,7 @@ import { BALANCE } from '../data/mock'
 import { getLang } from '../lib/i18n'
 import { N } from '../lib/format'
 import { applyDone } from './actions'
+import { liveNodeDone } from './livePlan'
 import { appStore, uiStore } from './store'
 import type { Approval, LiveRef, SheetState, TierKey } from './types'
 
@@ -153,6 +154,25 @@ export function liveDone(sheet: SheetState) {
     appStore.update((s) => applyDone(s, a))
     uiStore.update((u) => void (u.sheet = null))
     void syncBank()
+  }
+  if (ref.node) {
+    const by: [string, string] = sheet.tier === 'r' ? ['您和女儿确认的', 'Confirmed by you and your daughter'] : ['您确认的', 'Confirmed by you']
+    api
+      .approval(ref.approvalId)
+      .then((ap) => {
+        if (!ap.approval_token) throw new ApiError(409, { detail: t('还没有全部确认', 'Not fully approved yet') })
+        liveNodeDone(ref.node!.sid, ref.node!.nodeId, ap.approval_token, by, () => {
+          appStore.update((s) => {
+            if (s.famReq?.live?.approvalId === ref.approvalId) {
+              s.famPending = false
+              s.famReq = null
+            }
+          })
+          uiStore.update((u) => void (u.sheet = null))
+        })
+      })
+      .catch(fail)
+    return
   }
   const token = () =>
     api.approval(ref.approvalId).then((ap) => {

@@ -2,6 +2,7 @@ import { BALANCE, DAY_LIMIT, FAMILY_PIN, FARMER_PIN, freshApp, newPlan, SUPPLIER
 import { getLang, type Bi } from '../lib/i18n'
 import { N } from '../lib/format'
 import { appStore, uiStore } from './store'
+import { liveApproveNode, liveCmd, liveStartPlan } from './livePlan'
 import { liveCancel, liveConfirm, liveDecline, liveDone, livePin, liveStartGated, liveStartPayment, liveWithdraw } from './live'
 import type { AppState, Approval, Payee, PayInfo, Plan, PlanSpec, SheetState } from './types'
 
@@ -180,15 +181,18 @@ function advance(p: Plan) {
   else if (p.status === 'waiting') p.status = 'done'
 }
 export function startPlan(kind: Plan['kind'], spec?: PlanSpec) {
+  if (liveStartPlan(kind)) return
   appStore.update((s) => void (s.plan = newPlan(kind, s, spec)))
 }
 export function approveNode(id: string) {
   const plan = appStore.get().plan
   const n = plan?.nodes.find((x) => x.id === id)
   if (!n) return
+  if (liveApproveNode(id)) return
   openSheet({ tier: n.tier, raised: n.raise ?? null, zh: n.zh, en: n.en, before: N(BALANCE), after: N(BALANCE), then: 'node' })
 }
 export function cmdPlan(v: 'pause' | 'resume' | 'noloan' | 'cancel' | 'human') {
+  if (liveCmd(v)) return
   appStore.update((s) => {
     const p = s.plan
     if (!p) return
