@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     cors_origin_regex: str = r"^http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+):10086$"
     # 1 = anyone who can reach the API may reset the demo (a shared demo server). Off: only requests from this machine can.
     demo_public: bool = False
+    demo_per_minute: int = 20  # paid model calls per IP per minute, public demo only
+    demo_daily_cap: int = 500  # paid model calls per day in total, public demo only
+    # the built website, served by the backend when present (the Docker image copies web/dist here)
+    web_dist: str = (BACKEND_DIR.parent / "web" / "dist").as_posix()
     # demo clock: "today" for all date logic (Asia/Shanghai); empty = real date
     demo_today: str = "2026-07-25"
     llm_cache_dir: str = (BACKEND_DIR / "data" / "llm_cache").as_posix()

@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.config import settings
+from app.demo_limit import allowed
 
 log = logging.getLogger("qwen")
 MOCK_REPLY = "[mock llm reply]"
@@ -70,6 +71,8 @@ def chat(messages: list[dict], model: str | None = None, json_mode: bool = False
     cache = Path(settings.llm_cache_dir) / f"{key}.txt"
     if cache.exists():
         return cache.read_text(encoding="utf-8")
+    if not allowed():
+        raise LLMError("demo budget used up")
     text = _complete(messages, model, json_mode)
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(text, encoding="utf-8")
@@ -148,6 +151,8 @@ def tts_call(text: str) -> bytes:
     """qwen3-tts-flash through the native endpoint: it answers with a short-lived audio URL, which we download."""
     if settings.llm_provider != "dashscope":
         raise LLMError(f"{settings.provider_name} has no text-to-speech")
+    if not allowed():
+        raise LLMError("demo budget used up")
     try:
         r = httpx.post(_native_url(), headers={"Authorization": f"Bearer {settings.dashscope_api_key}"}, timeout=settings.llm_timeout,
                        json={"model": settings.qwen_tts, "input": {"text": text, "voice": settings.tts_voice, "language_type": "Chinese"}})

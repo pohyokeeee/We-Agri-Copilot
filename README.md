@@ -1,8 +1,18 @@
 # We-Agri-Copilot 元农民
 
-A voice-first banking agent (WeChat Mini Program) that does the back office for small agricultural
-businesses in China selling online, designed for older, low-literacy owners.
-WeBank FinTechathon 2026, Topic E (SME Finance Copilot).
+**Live demo:** https://we-agri-copilot.onrender.com/ (farmer `/`, family `/family`, judge panel `/judge`)
+
+- Free hosting: the first load may take up to a minute (the instance sleeps when idle).
+- It may be slow or unreachable from mainland China. **The demo video is the primary demo:** VIDEO_LINK
+- Simulated accounts, synthetic data. Demo PINs: `123456` (farmer, Uncle Wang) and `654321` (daughter, co-signer).
+- Use 重置演示 (judge panel, 演示工具) to start over.
+
+A voice-first banking agent that does the back office for small agricultural businesses in China selling online, designed for older,
+low-literacy owners. WeBank FinTechathon 2026, Topic E (SME Finance Copilot).
+
+The prelim demo is the **website** (`web/`). The **WeChat Mini Program** (`miniprogram/`) is the production channel; both talk to the same backend.
+Documentation: [Technical documentation](docs/TECHNICAL_DOCUMENTATION.md) · [Security self-assessment](docs/SECURITY_SELF_ASSESSMENT.md) ·
+[Project report](docs/full-project-report.md) · [Build plan](docs/build-plan.md) · [Forecast backtest evidence](evidence/backtest_forecast.md).
 
 > **SIMULATED ACCOUNTS — synthetic data only.** The bank is "Mock Bank — simulated accounts". Uncle Wang and
 > Wang Family Apiary are fictional. The county policy table is simulated.
@@ -19,21 +29,54 @@ own_produce / resale / processed):
 
 Chained request (S6): "下个月要收蜂蜜了，帮我准备一下" → task DAG with interrupt and partial rollback.
 
+## Screenshots
+
+| Screen | What it shows |
+|---|---|
+| <img src="docs/screenshots/01-home.png" alt="01-home" width="320"> | Home: balance, the plan in progress, and what the farmer can ask |
+| <img src="docs/screenshots/02-plan.png" alt="02-plan" width="320"> | One sentence ("下个月要收蜂蜜了，帮我准备一下") becomes a step-by-step plan; risky steps wait for confirmation |
+| <img src="docs/screenshots/03-tax-check.png" alt="03-tax-check" width="320"> | Tax compliance check: own produce vs resale, with the rule cited |
+| <img src="docs/screenshots/04-my-tax.png" alt="04-my-tax" width="320"> | Tax overview: 61% own produce / 39% resale, and why the platform figure is higher |
+| <img src="docs/screenshots/05-purchase-forecast.png" alt="05-purchase-forecast" width="320"> | Purchase forecast: spend and cash as ranges, with the likely gap |
+| <img src="docs/screenshots/06-subsidies.png" alt="06-subsidies" width="320"> | Subsidies and loans the business may qualify for, with documents and deadlines |
+| <img src="docs/screenshots/07-applications.png" alt="07-applications" width="320"> | Applications: drafts prepared, submission needs the farmer's and family's confirmation |
+| <img src="docs/screenshots/08-pay.png" alt="08-pay" width="320"> | Payments: daily 1,000 CNY limit, known payees, a new payee flagged |
+| <img src="docs/screenshots/09-family.png" alt="09-family" width="320"> | Family view (daughter's phone): approve or decline a risky payment, with the reason and a time limit |
+
 ## Architecture
 
 ```
-Mini Program (Taro/React) ──HTTP──> FastAPI
-                                      ├─ /bank/*   mock bank (SQLite): balance, payees, transfers, reserves,
-                                      │            order import, PIN/MFA, co-signer approvals, safety lock
-                                      ├─ app/risk  deterministic tier engine (green/yellow/red, only ever raises)
-                                      ├─ app/audit SHA-256 hash-chained, append-only audit log
-                                      ├─ app/analysis, app/agent, app/llm, app/voice   (stubs - see below)
-                                      └─ rule_tax / rule_policy tables (seed JSON, PRC rules only)
+web/ (Vite, React)  ─┐
+                     ├──HTTP──> FastAPI  (the website is served by the backend in the Docker image; its calls go to /api)
+miniprogram/ (Taro) ─┘            ├─ /bank/*   mock bank (SQLite): balance, payees, transfers, reserves,
+                                  │            order import, PIN/MFA, co-signer approvals, safety lock
+                                  ├─ app/risk  deterministic tier engine (green/yellow/red, only ever raises)
+                                  ├─ app/audit SHA-256 hash-chained, append-only audit log, trace view
+                                  ├─ app/analysis, app/agent, app/llm, app/voice   (sales record, compliance, forecast,
+                                  │            policy match, planner + executor, Qwen/Groq client, ASR/TTS)
+                                  └─ rule_tax / rule_policy tables (seed JSON, PRC rules only)
 ```
 
 Principle: **LLMs plan and explain; deterministic code computes.** The LLM never decides tiers, amounts, tax
 results or payees. Non-green bank actions return `202` + an approval; they execute only with a single-use token
 bound to that exact request (PIN, plus co-signer when the customer has protection mode and the tier is red).
+
+## Live demo (Render)
+
+The Docker image at the repo root serves the website and the API from one URL (`/api/...`; the old paths still work for the Mini Program).
+
+Deploy: push the repo to GitHub, in Render choose **New > Blueprint**, pick the repo (it reads `render.yaml`: one free web service, Singapore),
+then fill in the environment variables in the dashboard: `LLM_PROVIDER=groq`, `GROQ_API_KEY`, `GROQ_PLANNER`, `GROQ_CLASSIFIER`, `GROQ_ASR`,
+`LLM_MOCK=0`, `DEMO_PUBLIC=1`, `DEMO_TODAY=2026-07-25`. Check `https://<your-service>.onrender.com/health`.
+
+With `DEMO_PUBLIC=1` the service shows a "演示环境 · 模拟账户 · 数据会重置" banner, turns off `/docs` and CORS, allows `POST /demo/reset`, and limits paid model
+calls (20 per minute per IP, 500 per day; past that, answers come from fixed templates). The database is rebuilt on every start.
+
+Things to know:
+- The free instance sleeps when idle: the first load after a pause takes about a minute.
+- The site can be slow or unreachable from mainland China. **The video is the primary demo**; the live link is a backup for judges outside China.
+- Run locally with no key: `LLM_MOCK=1`. Backend: `cd backend && python -m seed.seed && uvicorn app.main:app`; website: `cd web && npm run dev`
+  (or build it with `npm run build` and the backend serves it at http://localhost:8000). Or `docker build -t wac . && docker run -p 8000:8000 -e LLM_MOCK=1 wac`.
 
 ## Quick start (Windows)
 
@@ -42,7 +85,7 @@ Double-click, or run from a terminal in the repo folder (paths with spaces are f
 | Script | What it does |
 |---|---|
 | `setup.bat` | One time: creates `backend\.venv`, installs backend and npm packages, copies `.env.example` to `.env` if there is none. Then open `.env` in Notepad and add your keys (`LLM_MOCK=1` needs none). |
-| `start.bat` | Opens two windows: the backend (reseeds `datapp.db`, then uvicorn on port 8000) and the Mini Program build (`npm run dev:weapp`). Prints the laptop's LAN IP. |
+| `start.bat` | Opens two windows: the backend (reseeds `data/app.db`, then uvicorn on port 8000) and the Mini Program build (`npm run dev:weapp`). Prints the laptop's LAN IP. |
 | `test.bat` | pytest with `LLM_MOCK=1`, audit-chain verify, `smoke_llm.py --dry`, then a PASS/FAIL summary. |
 | `phone.bat` | Writes `miniprogram\.env.local` (git-ignored) with `TARO_APP_API_BASE_URL=http://<LAN IP>:8000` and prints the real-phone steps. Restart the Mini Program build afterwards. |
 
@@ -107,8 +150,8 @@ Age-friendly (适老化) defaults live in `src/app.css`: 20px+ base font, high c
 
 ## Web preview (H5)
 
-A browser preview so teammates can click through the app without WeChat. **It is only a preview: the submission is the WeChat Mini Program.**
-Push-to-talk, microphone permission and spoken replies are WeChat-only, so the web version uses typing and shows replies as text.
+The Mini Program code also builds for the browser, so teammates can click through the production channel without WeChat. (The prelim demo itself is the website in `web/`; this H5 build is the same Mini Program UI.)
+Push-to-talk records with the browser's microphone (and falls back to typing if it is blocked). Spoken replies are WeChat-only, so the web version shows replies as text.
 
 ```bash
 cd miniprogram
@@ -162,14 +205,32 @@ in the list. `smoke_qwen.py` is kept as an alias.
 
 ## Status
 
-Implemented and tested: config/db/health, all tables, audit chain + CLI, tier engine, mock bank API
-(incl. approvals, co-signer, lock), PRC tax rule seed, simulated county policy seed, Uncle Wang seed data,
-VAT threshold helper (`app/tax/vat.py`), `app/llm/qwen.py` client (mock mode + disk cache).
+Matches [docs/SECURITY_SELF_ASSESSMENT.md](docs/SECURITY_SELF_ASSESSMENT.md) (status words are used strictly: Implemented = code plus a test).
+`LLM_MOCK=1 pytest -q`: **261 tests pass** (the self-assessment was written at 239).
 
-Stubbed (`NotImplementedError` + TODO): `app/analysis/*` (reconcile, compliance, structures, policy_match,
-forecast), `app/agent/*` (graph, executor, grounding, roles), `app/voice/asr.py`, `app/voice/tts.py`
-(label logic done). Mini Program pages/cards render static mock props; only `api.balance` and the co-signer
-calls are wired.
+**Implemented**
+- Permission tiers and raise rules (new payee, 2x median, over half the balance, night time, daily 1,000 CNY); the tier only ever goes up.
+- Typed 6-digit PIN (salted PBKDF2), family co-signer on its own phone, single-use approval tokens bound to the exact request, 5-minute expiry.
+- Safety lock (3 wrong PINs, injection detected, manual); locked = reads work, money cannot move; unlock always needs the co-signer.
+- Prompt-injection defence: untrusted-text wrapper, rule and model score, lock on detection, no payees or amounts from model text.
+- Grounding and wording checkers on model replies and tax/policy output (no advice, no filing words).
+- Hash-chained audit log with trace ids, verify command and endpoint, masked trace view.
+- Mock bank, sales record and reconciliation, compliance check, structure comparison, policy matching, procurement forecast, plan DAG with
+  approval, pause, partial rollback and human handover; Qwen/Groq provider switch with offline template fallback.
+- Mini Program pages (chat, co-signer, judge trace) wired to the backend; the website's live parts are listed under Partial.
 
-All rule rows have `citation_url: "TODO"`; the co-op row is `status: recall`. Verify every rule against its primary
-source before the demo.
+**Partial**
+- Speech-recognition guard: a heuristic read-back for doubtful audio; no list of known silence hallucinations.
+- AI labelling: spoken and on-screen label; no machine-readable audio metadata.
+- Personal data: synthetic only; no consent screen, no encryption at rest.
+- Injection scan covers order notes and product titles only.
+- Rule citations: every `citation_url` is still `"TODO"` and six tax rules are `recall` (shown as 待核实). No URL has been invented.
+- Website: some screens (forecast, policy, compliance and tax numbers) still show sample numbers; see `web/PHASE2.md` for what is live.
+- Model quality is only tested with fakes; the demo may run on a Groq stand-in instead of Qwen.
+
+**Not implemented**
+- Device binding and spoken PIN; anomaly detection and an anomaly-triggered lock.
+- Sandboxed code execution for open-ended questions, and the monthly spending report.
+- Proactive triggers, automatic handover after failed clarifications, tax-text explainer, exported evidence logs (`make evidence`).
+- Real bank or platform APIs, a real AppID and ICP-filed domain, generative-AI service registration, audio watermark.
+- Detection of a deleted audit-log tail (tamper-evident, not tamper-proof).
