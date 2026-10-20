@@ -116,6 +116,8 @@ export interface AppState {
   visited: boolean
   /** Phase 2: id of the loan draft at the bank, once one exists */
   loanId?: number
+  /** Phase 2: the bank's own numbers; the screens use them instead of the seed balance when present */
+  bank?: { balance: number; reserved: number; available: number }
   /** a message every farmer window shows until dismissed (e.g. the daughter declined) */
   notice: { zh: string; en: string; retry?: string } | null
 }

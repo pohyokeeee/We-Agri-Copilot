@@ -41,6 +41,7 @@ export async function initLive(): Promise<boolean> {
     await syncBank()
   } catch {
     setLive(false)
+    appStore.update((s) => void (s.bank = undefined))
   }
   return isLive
 }
@@ -52,6 +53,7 @@ export async function syncBank() {
     const [bal, sec] = await Promise.all([api.balance(), api.securityStatus()])
     appStore.update((s) => {
       s.sentToday = Math.max(0, Math.round(BALANCE - bal.balance))
+      s.bank = bal
       s.locked = sec.locked
     })
   } catch {
