@@ -10,9 +10,11 @@
 A voice-first banking agent that does the back office for small agricultural businesses in China selling online, designed for older,
 low-literacy owners. WeBank FinTechathon 2026, Topic E (SME Finance Copilot).
 
-The prelim demo is the **website** (`web/`). The **WeChat Mini Program** (`miniprogram/`) is the production channel; both talk to the same backend.
+The demo is the **website** (`web/`): screens and buttons first, with voice as a helper, in Chinese and English. The **WeChat Mini Program**
+(`miniprogram/`) is the production channel on the roadmap; its code is kept, but it is not needed to run or demo the website.
 Documentation: [Technical documentation](docs/TECHNICAL_DOCUMENTATION.md) · [Security self-assessment](docs/SECURITY_SELF_ASSESSMENT.md) ·
-[Project report](docs/full-project-report.md) · [Build plan](docs/build-plan.md) · [Forecast backtest evidence](evidence/backtest_forecast.md).
+[Project report](docs/full-project-report.md) · [Build plan](docs/build-plan.md) · [Execution evidence](docs/Execution_evidence.md) ·
+[Demo script](docs/Demo_script.md) · [Forecast backtest evidence](evidence/backtest_forecast.md).
 
 > **SIMULATED ACCOUNTS — synthetic data only.** The bank is "Mock Bank — simulated accounts". Uncle Wang and
 > Wang Family Apiary are fictional. The county policy table is simulated.
@@ -46,9 +48,9 @@ Chained request (S6): "下个月要收蜂蜜了，帮我准备一下" → task D
 ## Architecture
 
 ```
-web/ (Vite, React)  ─┐
-                     ├──HTTP──> FastAPI  (the website is served by the backend in the Docker image; its calls go to /api)
-miniprogram/ (Taro) ─┘            ├─ /bank/*   mock bank (SQLite): balance, payees, transfers, reserves,
+web/ (Vite, React)  ───HTTP──> FastAPI  (the website is served by the backend in the Docker image; its calls go to /api)
+miniprogram/ (Taro, roadmap channel: same API)
+                                  ├─ /bank/*   mock bank (SQLite): balance, payees, transfers, reserves,
                                   │            order import, PIN/MFA, co-signer approvals, safety lock
                                   ├─ app/risk  deterministic tier engine (green/yellow/red, only ever raises)
                                   ├─ app/audit SHA-256 hash-chained, append-only audit log, trace view
@@ -75,19 +77,59 @@ calls (20 per minute per IP, 500 per day; past that, answers come from fixed tem
 Things to know:
 - The free instance sleeps when idle: the first load after a pause takes about a minute.
 - The site can be slow or unreachable from mainland China. **The video is the primary demo**; the live link is a backup for judges outside China.
-- Run locally with no key: `LLM_MOCK=1`. Backend: `cd backend && python -m seed.seed && uvicorn app.main:app`; website: `cd web && npm run dev`
-  (or build it with `npm run build` and the backend serves it at http://localhost:8000). Or `docker build -t wac . && docker run -p 8000:8000 -e LLM_MOCK=1 wac`.
+- Run locally with no key: `LLM_MOCK=1`. Easiest: `web.bat` (see Quick start). By hand: backend `cd backend && python -m seed.seed && uvicorn app.main:app`,
+  website `cd web && npm run dev`, or build it with `npm run build` and the backend serves it at http://localhost:8000.
+  Or `docker build -t wac . && docker run -p 8000:8000 -e LLM_MOCK=1 wac`.
 
 ## Quick start (Windows)
 
 Double-click, or run from a terminal in the repo folder (paths with spaces are fine). Needs Python 3.12 (`py -3.12`) and Node 20.
 
+1. `setup.bat` once: creates `backend\.venv` and installs the backend packages (it also installs the Mini Program's npm packages, which the website does not need), and copies `.env.example` to `.env` if there is none.
+2. Open `.env` in Notepad and add your keys (`LLM_MOCK=1` needs none).
+3. `web.bat`: opens two windows, the backend (reseeds `data/app.db`, then uvicorn on port 8000) and the website (`npm run dev`; the script runs `npm install` in `web/` first if the packages are missing).
+4. Open http://localhost:5173 (farmer). Open http://localhost:5173/family in a second window for the daughter, and http://localhost:5173/judge for the judge panel.
+
 | Script | What it does |
 |---|---|
-| `setup.bat` | One time: creates `backend\.venv`, installs backend and npm packages, copies `.env.example` to `.env` if there is none. Then open `.env` in Notepad and add your keys (`LLM_MOCK=1` needs none). |
-| `start.bat` | Opens two windows: the backend (reseeds `data/app.db`, then uvicorn on port 8000) and the Mini Program build (`npm run dev:weapp`). Prints the laptop's LAN IP. |
+| `setup.bat` | One time: Python venv, backend packages, `.env` from the example. |
+| `web.bat` | Starts the backend and the website, each in its own window. |
 | `test.bat` | pytest with `LLM_MOCK=1`, audit-chain verify, `smoke_llm.py --dry`, then a PASS/FAIL summary. |
-| `phone.bat` | Writes `miniprogram\.env.local` (git-ignored) with `TARO_APP_API_BASE_URL=http://<LAN IP>:8000` and prints the real-phone steps. Restart the Mini Program build afterwards. |
+| `start.bat`, `phone.bat`, `h5.bat` | Mini Program only (WeChat build, real-phone address, browser preview of the Mini Program). Not needed for the website. |
+
+If the backend is not running, the website still opens and works on built-in sample data (nothing then touches the bank). To start over during a demo use the judge panel (`/judge` → Scenario controls → Reset data).
+
+## Run the website
+
+```bash
+cd web
+npm install
+npm run dev        # http://localhost:5173 (also on your LAN address)
+npm run build      # typecheck + production build
+```
+
+In development Vite forwards `/api` to the backend on `http://localhost:8000`, so the browser needs no CORS setting. For a build served from
+somewhere else, set `VITE_API_BASE`. When the site opens it asks the backend `/health`: backend up means the money actions, the plan, the judge panel and
+hold-to-talk use the real endpoints; backend down means the built-in sample data.
+
+**Live (real endpoints):** payments (transfer, confirm, PIN, co-sign, execute), the tax-pot rule, loan draft / submit / withdraw, the honey-season plan and the
+pay-six-families plan with the five commands, balance / reserved / lock, and the judge panel (trace, audit check, scenario controls). Hold-to-talk needs a
+speech provider; without one it offers the stand-in sentence.
+**Still sample data:** the forecast, policy, compliance and tax numbers on the screens, the climate and cash plans, a payee typed in by hand, the loan review
+states, and English wording of the agent's replies (Chinese only for now). Spoken replies are not wired.
+
+| Route | What |
+|---|---|
+| `/welcome`, `/` | first visit; task-first home |
+| `/tax/check`, `/tax` | guided tax check; my tax situation |
+| `/support`, `/applications` | subsidies and loans; application status |
+| `/season`, `/plan` | buying-season forecast; the agent's plan (approve, pause, "not the loan", "never mind") |
+| `/pay` | guided payment |
+| `/family` | the daughter's window (a second window of the same browser) |
+| `/judge` | judge panel: trace, audit check, scenario controls |
+
+Test PINs on the simulated account: Uncle Wang `123456`, daughter `654321`. The farmer and family windows must be two windows of the same browser (same profile): the daughter's request is passed through the browser's saved
+state, so a separate phone or another browser does not see it yet.
 
 ## Run the backend
 
@@ -124,49 +166,27 @@ customer 2, PIN `654321`. Seeded window is 2025-07 to 2026-06 (demo "today" ≈ 
 Demo clock: all date logic uses `app.clock.today()`, which is `DEMO_TODAY` (default `2026-07-25`, so the honey purchase is
 about 3 weeks away); set `DEMO_TODAY=` empty for the real date. Re-run `python -m seed.seed` after changing it.
 Backtest of the forecast: `python -m scripts.backtest_forecast` (writes `evidence/backtest_forecast.md`).
+Execution evidence: `make evidence` replays the scripted runs and writes `evidence/runs/*.jsonl` (see [docs/Execution_evidence.md](docs/Execution_evidence.md)).
 Sample order exports for `POST /bank/orders/import` are in `backend/seed/orders/`.
 
-## Run the Mini Program
+## WeChat Mini Program (roadmap channel, not needed for the demo)
+
+The Taro Mini Program in `miniprogram/` is kept for the production path. Build and run it only if you work on it:
 
 ```bash
 cd miniprogram
-nvm use 20                # Node 20 LTS recommended (engines: >=18 <21; Node 24 is untested with Taro 4.0.9)
+nvm use 20                # Node 20 LTS recommended (engines: >=18 <21)
 cp .env.example .env     # optional: TARO_APP_API_BASE_URL (default http://localhost:8000)
 npm install
-npm run dev:weapp
+npm run dev:weapp         # or `start.bat`, then open miniprogram/ in WeChat DevTools (AppID: touristappid)
 ```
 
-**API base URL.** It is a build-time constant (`API_BASE_URL`, set in `config/index.ts` from `TARO_APP_API_BASE_URL`); the Mini
-Program runtime has no `process`, so never read `process.env` in `src/`. Unset means `http://localhost:8000`. For a real phone use the
-PC's LAN IP: put `TARO_APP_API_BASE_URL=http://192.168.1.23:8000` in `miniprogram/.env`, start the backend with `--host 0.0.0.0`,
-and **rebuild** (`npm run dev:weapp` again), because the value is baked in at build time.
+The API base URL is a build-time constant (`TARO_APP_API_BASE_URL`, default `http://localhost:8000`; use the PC's LAN IP for a real phone and rebuild,
+or run `phone.bat`). In WeChat DevTools untick "不校验合法域名…" (Details → Local settings) so it can call `http://127.0.0.1:8000`.
+`npm run dev:h5` (or `h5.bat`) builds the same Mini Program UI for a browser; the backend allows cross-origin calls from localhost and private-LAN
+addresses on port 10086 (add others with `CORS_ORIGINS`). The Mini Program is not run in Docker.
 
-Open `miniprogram/` in WeChat DevTools (AppID is the placeholder `touristappid`).
-**During development, untick "不校验合法域名、web-view(业务域名)、TLS 版本以及 HTTPS 证书"** (Details → Local
-settings) so the app can call `http://127.0.0.1:8000`. `project.config.json` also sets `urlCheck: false`.
-Mini Program is not run in Docker.
-
-Age-friendly (适老化) defaults live in `src/app.css`: 20px+ base font, high contrast, 48px minimum tap targets.
-
-## Web preview (H5)
-
-The Mini Program code also builds for the browser, so teammates can click through the production channel without WeChat. (The prelim demo itself is the website in `web/`; this H5 build is the same Mini Program UI.)
-Push-to-talk records with the browser's microphone (and falls back to typing if it is blocked). Spoken replies are WeChat-only, so the web version shows replies as text.
-
-```bash
-cd miniprogram
-npm run dev:h5      # http://localhost:10086 (listens on 0.0.0.0)
-npm run build:h5    # static files in miniprogram/dist-h5
-```
-
-On Windows, `h5.bat` does the setup for the same Wi-Fi: it points the API base URL at this laptop's LAN IP, starts `dev:h5` and prints
-`http://<LAN IP>:10086` (start the backend with `start.bat`). The API base URL is the same build-time variable as for the Mini Program
-(`TARO_APP_API_BASE_URL`, default `http://localhost:8000`). The backend allows cross-origin calls only from localhost and private-LAN
-addresses on port 10086; add other origins (such as a tunnel) with `CORS_ORIGINS` in `.env`. For remote access:
-`cloudflared tunnel --url http://localhost:10086`, tunnel the backend too (`--url http://localhost:8000`), set `TARO_APP_API_BASE_URL` to the
-backend tunnel URL, add the H5 tunnel URL to `CORS_ORIGINS`, and restart both.
-
-## Mini Program design tokens
+### Mini Program design tokens
 
 All styling reads `miniprogram/src/styles/tokens.scss` (CSS variables on `page`). Nothing else hard-codes a size, colour or timing.
 
@@ -199,6 +219,10 @@ nothing leaves the machine and every feature uses its template. The tests always
 stand-in** while the Alibaba account is being verified; Whisper is weaker on dialect and quiet or slow speech, so expect more
 "请确认" read-backs there.
 
+**Local Qwen with Ollama (no key, free)** is a third option, `LLM_PROVIDER=ollama` (default model `qwen2.5:7b` after `ollama pull qwen2.5:7b`; set
+`LLM_MOCK=0` and `LLM_TIMEOUT=60` or more, because a local model is slower). It has no speech: `/voice/asr` answers 503 and `/voice/tts` answers 204, so the app
+asks for typing. We used it for the live-model evidence runs (`make evidence-live`); the live demo runs on Groq.
+
 `python scripts\smoke_llm.py` (from `backend/`; `--dry` shows the configuration without calling anything) calls each model of the
 selected provider once, prints OK/FAIL/SKIP with the latency, lists the provider's models and WARNs about a configured id that is not
 in the list. `smoke_qwen.py` is kept as an alias.
@@ -217,7 +241,8 @@ Matches [docs/SECURITY_SELF_ASSESSMENT.md](docs/SECURITY_SELF_ASSESSMENT.md) (st
 - Hash-chained audit log with trace ids, verify command and endpoint, masked trace view.
 - Mock bank, sales record and reconciliation, compliance check, structure comparison, policy matching, procurement forecast, plan DAG with
   approval, pause, partial rollback and human handover; Qwen/Groq provider switch with offline template fallback.
-- Mini Program pages (chat, co-signer, judge trace) wired to the backend; the website's live parts are listed under Partial.
+- Website pages (farmer, family co-signer, judge trace) wired to the backend, with a fall-back to sample data when it is down; the Mini Program pages exist but are not part of the demo.
+- Execution evidence: `make evidence` exports 15 reproducible runs (E02, E04-E16 and a tamper check) with their hash-chained audit rows; `make evidence-live` exports 5 runs with a real model.
 
 **Partial**
 - Speech-recognition guard: a heuristic read-back for doubtful audio; no list of known silence hallucinations.
@@ -225,12 +250,13 @@ Matches [docs/SECURITY_SELF_ASSESSMENT.md](docs/SECURITY_SELF_ASSESSMENT.md) (st
 - Personal data: synthetic only; no consent screen, no encryption at rest.
 - Injection scan covers order notes and product titles only.
 - Rule citations: every `citation_url` is still `"TODO"` and six tax rules are `recall` (shown as 待核实). No URL has been invented.
-- Website: some screens (forecast, policy, compliance and tax numbers) still show sample numbers; see `web/PHASE2.md` for what is live.
+- Website: some screens (forecast, policy, compliance and tax numbers) still show sample numbers; see "Run the website" for what is live.
 - Model quality is only tested with fakes; the demo may run on a Groq stand-in instead of Qwen.
 
 **Not implemented**
 - Device binding and spoken PIN; anomaly detection and an anomaly-triggered lock.
-- Sandboxed code execution for open-ended questions, and the monthly spending report.
-- Proactive triggers, automatic handover after failed clarifications, tax-text explainer, exported evidence logs (`make evidence`).
+- Proactive triggers, automatic handover after failed clarifications, tax-text explainer.
 - Real bank or platform APIs, a real AppID and ICP-filed domain, generative-AI service registration, audio watermark.
 - Detection of a deleted audit-log tail (tamper-evident, not tamper-proof).
+
+**Dropped from the scope:** sandboxed code execution for open-ended questions (E3) and the monthly spending report (E1).
