@@ -32,6 +32,7 @@ const Alert = (p: { to: string; mark: string; title: string; sub: string }) => (
 /** Task-first home: what would you like to do, what is unfinished, what we noticed. The balance sits right under the greeting. */
 export default function Home() {
   const t = useT()
+  const bank = useApp((s) => s.bank)
   const { plan, famPending, famReq, loan, season, sentToday, taxRule, subs } = useApp((s) => ({
     plan: s.plan, famPending: s.famPending, famReq: s.famReq, loan: s.app.loan, season: s.season, sentToday: s.sentToday, taxRule: s.taxRule, subs: s.subs,
   }))
@@ -68,9 +69,9 @@ export default function Home() {
 
       <div className="card" style={{ marginTop: 16, gap: 6 }}>
         <span className="muted">{t('账户余额（模拟账户）', 'Balance (simulated account)')}</span>
-        <span className="big" style={{ color: 'var(--ink)' }}>{N(BALANCE - sentToday)}</span>
+        <span className="big" style={{ color: 'var(--ink)' }}>{N(bank ? Math.round(bank.balance) : BALANCE - sentToday)}</span>
         <span className="small">
-          {t('已预留', 'Set aside')} {taxRule ? '226' : '0'} · {t('可以用的', 'Available')} {N(BALANCE - sentToday - (taxRule ? 226 : 0))}
+          {t('已预留', 'Set aside')} {bank ? N(Math.round(bank.reserved)) : taxRule ? '226' : '0'} · {t('可以用的', 'Available')} {N(bank ? Math.round(bank.available) : BALANCE - sentToday - (taxRule ? 226 : 0))}
         </span>
       </div>
 

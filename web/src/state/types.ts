@@ -11,6 +11,9 @@ export interface PlanNode {
   sum?: Bi
   raise?: Bi
   loan?: boolean
+  /** Phase 2: the bank approval waiting on this step, and the read-back sentence the bank wrote for it */
+  ap?: number
+  read?: string
 }
 export interface Plan {
   status: 'waiting' | 'paused' | 'cancelled' | 'handover' | 'done'
@@ -20,6 +23,8 @@ export interface Plan {
   /** climate/cash plans: short name of what the cash is for, and the loan amount pre-filled in the loan step */
   title?: Bi
   borrow?: number
+  /** Phase 2: the agent session behind this plan */
+  sid?: string
 }
 
 /** What the Season page hands to `startPlan` for the climate / generic-cash plans. All amounts in yuan. */
@@ -73,6 +78,18 @@ export interface Approval {
   then: After
   sub?: SubKey
   payInfo?: PayInfo
+  /** Phase 2: the bank approval behind this sheet. Absent = a mock-only action. */
+  live?: LiveRef
+}
+
+/** Ties a sheet to the real bank approval and the transfer it unlocks. */
+export interface LiveRef {
+  approvalId: number
+  transfer?: { payee_id: number; amount: number; purpose: string }
+  /** loan draft: the amount to pre-fill */
+  amount?: number
+  /** a plan step: approving it hands the token back to the agent */
+  node?: { sid: string; nodeId: string }
 }
 
 export interface LogEntry {
@@ -101,6 +118,10 @@ export interface AppState {
   season: { pct: number; off: string[] }
   plan: Plan | null
   visited: boolean
+  /** Phase 2: id of the loan draft at the bank, once one exists */
+  loanId?: number
+  /** Phase 2: the bank's own numbers; the screens use them instead of the seed balance when present */
+  bank?: { balance: number; reserved: number; available: number }
   /** a message every farmer window shows until dismissed (e.g. the daughter declined) */
   notice: { zh: string; en: string; retry?: string } | null
 }
@@ -118,5 +139,7 @@ export interface UiState {
   drawer: boolean
   tipSeen: boolean
   ask: 'confirm' | null
+  /** what the microphone heard, shown in the confirm strip; null = the Phase 1 stand-in sentence */
+  heard: string | null
   answer: string | null
 }

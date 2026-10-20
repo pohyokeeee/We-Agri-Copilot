@@ -2,7 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-// Phase 1: UI only with mock data. Phase 2 adds the /api proxy to the FastAPI backend on :8000.
+// Phase 2: /api is proxied to the FastAPI backend on :8000, so the browser needs no CORS.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: { proxy: { '/api': { target: 'http://localhost:8000', rewrite: (p) => p.replace(/^\/api/, '') } } },
 })

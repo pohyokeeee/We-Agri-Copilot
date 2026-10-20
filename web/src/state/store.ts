@@ -19,6 +19,7 @@ export const uiStore = createStore<UiState>(() => ({
   drawer: false,
   tipSeen: false,
   ask: null,
+  heard: null,
   answer: null,
 }))
 
