@@ -101,18 +101,20 @@ export function AskBar() {
             }
           }}
         >
-          ● {live ? t('正在听…松开发送', 'Listening… release to send') : t('按住说话', 'Hold to talk')}
+          ● {live ? t('松开发送', 'Release to send') : t('按住说话', 'Hold to talk')}
         </button>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && go()}
-          placeholder={t('或者在这里打字', 'Or type here')}
+          placeholder={t('或打字', 'Or type')}
           aria-label={t('打字提问', 'Type a question')}
         />
-        <button className="go" onClick={go}>
-          {t('问', 'Ask')}
-        </button>
+        {text.trim() && (
+          <button className="go" onClick={go}>
+            {t('问', 'Ask')}
+          </button>
+        )}
       </div>
     </div>
   )

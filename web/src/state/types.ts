@@ -58,7 +58,9 @@ export interface Payee {
 }
 
 export type LoanState = 'none' | 'draft' | 'submitted' | 'needdocs' | 'approved' | 'paid'
-export type After = 'taxpot' | 'prefill' | 'submit' | 'node' | 'paydone'
+export type SubKey = 'farmland' | 'interest'
+export type SubStatus = 'none' | 'draft' | 'submitted' | 'needdocs' | 'approved'
+export type After = 'taxpot' | 'prefill' | 'submit' | 'node' | 'paydone' | 'subprefill' | 'subsubmit'
 
 /** What a confirmation sheet is asking for. Created by an action, finished by `applyDone`. */
 export interface Approval {
@@ -69,6 +71,7 @@ export interface Approval {
   before?: string
   after?: string
   then: After
+  sub?: SubKey
   payInfo?: PayInfo
 }
 
@@ -84,7 +87,8 @@ export interface AppState {
   pinTries: number
   taxRule: boolean
   orderConfirmed: 'res' | 'own' | null
-  app: { loan: LoanState; sub: boolean; amount: number }
+  app: { loan: LoanState; amount: number }
+  subs: Record<SubKey, SubStatus>
   log: LogEntry[]
   clock: number
   sentToday: number

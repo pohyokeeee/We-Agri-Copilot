@@ -14,7 +14,7 @@ function shallowEqual(a: unknown, b: unknown): boolean {
  * With `persistKey`, the state is mirrored to localStorage and other windows pick up changes through the
  * `storage` event. That is how the farmer window and the daughter's window share one mock bank in Phase 1.
  */
-export function createStore<T extends object>(initial: () => T, persistKey?: string) {
+export function createStore<T extends object>(initial: () => T, persistKey?: string, migrate?: (saved: Partial<T>) => T) {
   let state: T = load() ?? initial()
   const listeners = new Set<() => void>()
 
@@ -22,7 +22,9 @@ export function createStore<T extends object>(initial: () => T, persistKey?: str
     if (!persistKey) return null
     try {
       const raw = localStorage.getItem(persistKey)
-      return raw ? (JSON.parse(raw) as T) : null
+      if (!raw) return null
+      const saved = JSON.parse(raw) as Partial<T>
+      return migrate ? migrate(saved) : (saved as T)
     } catch {
       return null
     }
@@ -41,7 +43,8 @@ export function createStore<T extends object>(initial: () => T, persistKey?: str
     window.addEventListener('storage', (e) => {
       if (e.key !== persistKey || !e.newValue) return
       try {
-        state = JSON.parse(e.newValue) as T
+        const saved = JSON.parse(e.newValue) as Partial<T>
+        state = migrate ? migrate(saved) : (saved as T)
         emit()
       } catch {
         /* ignore a half-written value */

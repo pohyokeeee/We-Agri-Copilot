@@ -68,7 +68,7 @@ export default function Pay() {
         <>
           <h2 className="lg">{t('付给谁？', 'Who are you paying?')}</h2>
           <div className="inrow">
-            <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('找人：名字、外号或电话，例如“老李”', 'Find: name, nickname or phone, e.g. “Old Li”')} aria-label={t('找人', 'Find a person')} />
+            <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('名字、外号或电话', 'Name or nickname')} aria-label={t('找人', 'Find a person')} />
             <button className="say" onClick={() => undefined} aria-label={t('说话输入', 'Speak')}>{t('说', 'Speak')}</button>
           </div>
           <div className="grid2">

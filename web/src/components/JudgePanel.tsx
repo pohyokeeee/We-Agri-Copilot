@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useBi, useT } from '../lib/i18n'
-import { scenario } from '../state/actions'
+import { scenario, SUB_NAME } from '../state/actions'
 import { uiStore, useApp } from '../state/store'
 
 const ROWS = [
@@ -21,6 +21,7 @@ export function JudgePanel({ full }: { full?: boolean }) {
   const [tab, setTab] = useState<'trace' | 'audit' | 'scn'>('trace')
   const locked = useApp((s) => s.locked)
   const loan = useApp((s) => s.app.loan)
+  const subs = useApp((s) => s.subs)
   const log = useApp((s) => s.log)
 
   const Op = (p: { v: Parameters<typeof scenario>[0]; title: string; sub: string }) => (
@@ -143,6 +144,12 @@ export function JudgePanel({ full }: { full?: boolean }) {
               <Op v="docs" title={t('银行要补材料', 'Bank asks for a document')} sub={t('要近3个月平台收入截图', 'Asks for 3 months of platform income')} />
             </>
           )}
+          {(['farmland', 'interest'] as const).filter((k) => subs[k] === 'submitted').map((k) => (
+            <Fragment key={k}>
+              <Op v={`subApprove:${k}`} title={t(`县里批准：${SUB_NAME[k][0]}`, `County approves: ${SUB_NAME[k][1]}`)} sub={t('模拟县补贴系统的审核结果', 'The simulated county system’s review result')} />
+              <Op v={`subDocs:${k}`} title={t(`县里要补材料：${SUB_NAME[k][0]}`, `County asks for a document: ${SUB_NAME[k][1]}`)} sub={t('要一张合同照片', 'Asks for a contract photo')} />
+            </Fragment>
+          ))}
           {loan === 'approved' && <Op v="payout" title={t('放款到账', 'Pay out the loan')} sub={t('钱进入农户账户', 'Money reaches the farmer’s account')} />}
         </div>
       )}

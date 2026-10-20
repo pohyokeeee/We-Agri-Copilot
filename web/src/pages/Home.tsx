@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { BALANCE, forecast } from '../data/mock'
 import { N } from '../lib/format'
 import { useT } from '../lib/i18n'
-import { planOpen } from '../state/actions'
+import { planOpen, SUB_NAME } from '../state/actions'
 import { useApp } from '../state/store'
 
 const Task = (p: { to: string; title: ReactNode; sub: ReactNode }) => (
@@ -32,8 +32,8 @@ const Alert = (p: { to: string; mark: string; title: string; sub: string }) => (
 /** Task-first home: what would you like to do, what is unfinished, what we noticed. The balance sits right under the greeting. */
 export default function Home() {
   const t = useT()
-  const { plan, famPending, famReq, loan, season, sentToday, taxRule } = useApp((s) => ({
-    plan: s.plan, famPending: s.famPending, famReq: s.famReq, loan: s.app.loan, season: s.season, sentToday: s.sentToday, taxRule: s.taxRule,
+  const { plan, famPending, famReq, loan, season, sentToday, taxRule, subs } = useApp((s) => ({
+    plan: s.plan, famPending: s.famPending, famReq: s.famReq, loan: s.app.loan, season: s.season, sentToday: s.sentToday, taxRule: s.taxRule, subs: s.subs,
   }))
   const f = forecast(season)
   const pending: { title: string; sub: string; to: string }[] = []
@@ -45,8 +45,13 @@ export default function Home() {
       to: '/plan',
     })
   }
-  if (famPending && famReq) pending.push({ title: t('等女儿确认', 'Waiting for your daughter'), sub: t(famReq.zh, famReq.en), to: famReq.payInfo ? '/pay' : famReq.then === 'submit' ? '/applications' : '/plan' })
+  if (famPending && famReq) pending.push({ title: t('等女儿确认', 'Waiting for your daughter'), sub: t(famReq.zh, famReq.en), to: famReq.payInfo ? '/pay' : famReq.then === 'submit' || famReq.then === 'subsubmit' ? '/applications' : '/plan' })
   if (loan === 'draft' && !famPending) pending.push({ title: t('贷款申请已填好', 'Loan application filled in'), sub: t('等您确认发出', 'Waiting for you to send it'), to: '/applications' })
+  for (const k of ['farmland', 'interest'] as const) {
+    const n = SUB_NAME[k]
+    if (subs[k] === 'draft' && !(famPending && famReq?.sub === k)) pending.push({ title: t(`${n[0]}申请已填好`, `${n[1]} application filled in`), sub: t('等您确认提交', 'Waiting for you to submit it'), to: '/applications' })
+    if (subs[k] === 'needdocs') pending.push({ title: t(`县里要您补材料：${n[0]}`, `The county needs a document: ${n[1]}`), sub: t('拍一张合同照片上传', 'Upload a photo of the contract'), to: '/applications' })
+  }
   if (loan === 'needdocs') pending.push({ title: t('银行要您补材料', 'The bank needs a document'), sub: t('补一张近3个月平台收入截图', 'Add a screenshot of 3 months of platform income'), to: '/applications' })
 
   return (
@@ -92,7 +97,7 @@ export default function Home() {
       <h2 className="lg">{t('您今天想做什么？', 'What would you like to do today?')}</h2>
       <div className="grid2">
         <Task to="/tax/check" title={t('税务：记一笔买卖，看看合不合规', 'Tax: record a purchase or sale, check you’re within the rules')} sub={t('一步一步，用您自己的数字', 'Step by step, with your own numbers')} />
-        <Task to="/support" title={t('看看我能领什么补贴', 'See what support I may get')} sub={t('补贴、贷款贴息、便宜的农业贷款', 'Subsidies, interest subsidies, cheaper farm loans')} />
+        <Task to="/support" title={t('看看我能领什么补贴', 'See what support I may get')} sub={t('补贴、贷款贴息、贷款申请', 'Subsidies, interest subsidies, loan application')} />
         <Task to="/season" title={t('准备收购的钱', 'Get cash ready for buying')} sub={t('7天后开始收邻居蜂蜜', 'Buying neighbours’ honey starts in 7 days')} />
         <Task to="/pay" title={t('给人付款', 'Pay someone')} sub={t('付蜂蜜钱、瓶罐钱、别的钱', 'Honey, jars, or anything else')} />
         <Task to="/applications" title={t('看我的申请进度', 'Track my applications')} sub={t('贷款、补贴办到哪一步了', 'Where your loan and subsidy applications stand')} />

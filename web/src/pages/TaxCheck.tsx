@@ -99,8 +99,8 @@ export default function TaxCheck() {
           ) : custom ? (
             <div className="card">
               <b style={{ color: 'var(--ink)' }}>{t('自己填一笔', 'Enter it yourself')}</b>
-              <Field id="txWhat" label={bought ? ['买了什么', 'What did you buy?'] : ['卖了什么', 'What did you sell?']} placeholder={['例如：老李家的蜂蜜 30斤', 'e.g. 30 jin of Old Li’s honey']} value={f.what} onChange={(v) => setF({ ...f, what: v })} />
-              <Field id="txWho" label={bought ? ['跟谁买的', 'Bought from whom?'] : ['卖给谁 / 哪个平台', 'Sold to whom / which platform?']} placeholder={['名字或外号', 'Name or nickname']} value={f.who} onChange={(v) => setF({ ...f, who: v })} />
+              <Field id="txWhat" label={bought ? ['买了什么', 'What did you buy?'] : ['卖了什么', 'What did you sell?']} placeholder={['例如：30斤蜂蜜', 'e.g. 30 jin honey']} value={f.what} onChange={(v) => setF({ ...f, what: v })} />
+              <Field id="txWho" label={bought ? ['跟谁买的', 'Bought from whom?'] : ['卖给谁 / 哪个平台', 'Sold to whom / which platform?']} placeholder={['名字或外号', 'Name / nickname']} value={f.who} onChange={(v) => setF({ ...f, who: v })} />
               <Field id="txAmt" label={['多少钱（元）', 'How much (yuan)?']} placeholder={['例如：1200', 'e.g. 1200']} numeric value={f.amt} onChange={(v) => setF({ ...f, amt: v })} />
               <Field id="txDay" label={['哪天', 'Which day?']} placeholder={['例如：7月23日', 'e.g. 23 Jul']} value={f.day} onChange={(v) => setF({ ...f, day: v })} />
               <div className="btns">

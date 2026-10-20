@@ -59,7 +59,7 @@ export default function Welcome() {
           />
           <Svc
             to="/support"
-            title={t('补贴和便宜贷款', 'Subsidies and cheaper loans')}
+            title={t('补贴和贷款申请', 'Subsidies and loan application')}
             get={t('您可能领到：耕地补贴每亩100元 · 贷款利息补一半（最多5,000元）· 加入合作社最多20,000元。', 'You may get: 100 yuan per mu farmland subsidy · half your loan interest back (up to 5,000) · up to 20,000 if you join a co-op.')}
             say={t('有什么补贴我能申请？', 'Any subsidies I can apply for?')}
             cta={t('看我能领什么', 'See what I may get')}

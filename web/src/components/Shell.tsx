@@ -42,7 +42,8 @@ function useBadges() {
   const plan = useApp((s) => s.plan)
   const loan = useApp((s) => s.app.loan)
   const famPay = useApp((s) => s.famPending && !!s.famReq?.payInfo)
-  const home = planOpen(plan) || loan === 'draft' || loan === 'needdocs'
+  const subsPending = useApp((s) => Object.values(s.subs).some((v) => v === 'draft' || v === 'needdocs'))
+  const home = planOpen(plan) || loan === 'draft' || loan === 'needdocs' || subsPending
   return (path: string) => (path === '/' && home) || (path === '/pay' && famPay)
 }
 

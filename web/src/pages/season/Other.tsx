@@ -35,7 +35,7 @@ export default function Other() {
         <Field id="othWhat" label={['或者自己写', 'Or write it yourself']} placeholder={['例如：买新蜂箱', 'e.g. buy new hives']} value={what} onChange={setWhat} />
         <Field id="othAmt" label={['大概要多少钱（元）', 'About how much (yuan)']} placeholder={['例如：15000', 'e.g. 15000']} numeric value={amt} onChange={setAmt} />
         <Field id="othUp" label={['最多可能到多少（可不填）', 'Could be up to (optional)']} placeholder={['例如：18000', 'e.g. 18000']} numeric value={upTo} onChange={setUpTo} />
-        <Field id="othWhen" label={['什么时候要（可不填）', 'By when (optional)']} placeholder={['例如：9月底', 'e.g. end of September']} value={when} onChange={setWhen} />
+        <Field id="othWhen" label={['什么时候要（可不填）', 'By when (optional)']} placeholder={['例如：9月底', 'e.g. end of Sep']} value={when} onChange={setWhen} />
       </div>
 
       {c && (

@@ -60,7 +60,8 @@ export function freshApp(): AppState {
     pinTries: 3,
     taxRule: false,
     orderConfirmed: null,
-    app: { loan: 'none', sub: false, amount: 7500 },
+    app: { loan: 'none', amount: 7500 },
+    subs: { farmland: 'none', interest: 'none' },
     log: [],
     clock: 2,
     sentToday: 0,
@@ -102,7 +103,7 @@ function specPlan(kind: 'climate' | 'cash', spec: PlanSpec): Plan {
   const rng: Bi = [`约${N(spec.low)}–${N(spec.high)}元`, `about ${N(spec.low)}–${N(spec.high)} yuan`]
   const nodes: PlanNode[] = [
     { id: '', zh: '算一算要备多少钱', en: 'Work out how much cash to prepare', tier: 'g', st: 'done', sum: rng },
-    { id: '', zh: '查更便宜的贷款和可用补贴', en: 'Look at cheaper loans and available subsidies', tier: 'g', st: 'done', sum: ['贴息50%可用于贷款', '50% interest subsidy applies to a loan'] },
+    { id: '', zh: '查贷款和可用补贴', en: 'Look at loans and available subsidies', tier: 'g', st: 'done', sum: ['贴息50%可用于贷款', '50% interest subsidy applies to a loan'] },
     { id: '', zh: `先预留${N(aside)}元（只留出来，不转出去）`, en: `Set aside ${N(aside)} yuan (kept in your account, not sent)`, tier: asideTier, st: 'waiting', ...(asideTier === 'r' ? { raise: asideWhy } : {}) },
   ]
   if (loan > 0) {

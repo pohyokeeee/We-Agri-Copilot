@@ -2,7 +2,7 @@ import { BALANCE, DAY_LIMIT, FAMILY_PIN, FARMER_PIN, freshApp, newPlan, SUPPLIER
 import { getLang, type Bi } from '../lib/i18n'
 import { N } from '../lib/format'
 import { appStore, uiStore } from './store'
-import type { AppState, Approval, Payee, PayInfo, Plan, PlanSpec, SheetState } from './types'
+import type { AppState, Approval, Payee, PayInfo, Plan, PlanSpec, SheetState, SubKey } from './types'
 
 /*
  * Every user action lives here, away from the screens. In Phase 1 these change the mock state directly.
@@ -79,7 +79,7 @@ export function pressPin(d: string) {
   uiStore.update((u) => void (u.sheet && ((u.sheet.step = 'family'), (u.sheet.pin = ''), (u.sheet.err = ''))))
 }
 const approvalOf = (x: SheetState | Approval): Approval => ({
-  tier: x.tier, raised: x.raised, zh: x.zh, en: x.en, before: x.before, after: x.after, then: x.then, payInfo: x.payInfo,
+  tier: x.tier, raised: x.raised, zh: x.zh, en: x.en, before: x.before, after: x.after, then: x.then, payInfo: x.payInfo, sub: x.sub,
 })
 
 export function sheetDone() {
@@ -103,6 +103,14 @@ function applyDone(s: AppState, a: Approval) {
   if (a.then === 'submit') {
     s.app.loan = 'submitted'
     log(s, '把贷款申请发给了模拟银行', 'Sent the loan application to the mock bank', by)
+  }
+  if (a.then === 'subprefill' && a.sub) {
+    s.subs[a.sub] = 'draft'
+    log(s, `填好了“${SUB_NAME[a.sub][0]}”的申请表（没有提交）`, `Filled in the ${SUB_NAME[a.sub][1]} application (not submitted)`, by)
+  }
+  if (a.then === 'subsubmit' && a.sub) {
+    s.subs[a.sub] = 'submitted'
+    log(s, `把“${SUB_NAME[a.sub][0]}”的申请提交到了（模拟）县补贴系统`, `Submitted the ${SUB_NAME[a.sub][1]} application to the (simulated) county subsidy system`, by)
   }
   if (a.then === 'node' && s.plan) {
     const n = s.plan.nodes.find((x) => x.st === 'waiting')
@@ -156,7 +164,7 @@ export function famDecline() {
     s.notice = {
       zh: '女儿没有同意：' + r.zh + '。这笔没有做。',
       en: 'Your daughter declined: ' + r.en + '. Nothing was done.',
-      retry: r.payInfo ? '/pay' : r.then === 'submit' ? '/applications' : '/plan',
+      retry: r.payInfo ? '/pay' : r.then === 'submit' || r.then === 'subsubmit' ? '/applications' : '/plan',
     }
   })
 }
@@ -243,10 +251,31 @@ export const docsSent = () =>
     s.app.loan = 'submitted'
     log(s, '补交了平台收入截图', 'Sent the platform income screenshot', BY_YOU)
   })
-export const subDone = () =>
+export const SUB_NAME: Record<SubKey, Bi> = {
+  farmland: ['耕地地力保护补贴', 'Farmland protection subsidy'],
+  interest: ['农业经营流动资金贴息', 'Working-capital interest subsidy'],
+}
+/**
+ * Subsidies are filled in and submitted the same way as the loan, but to the SIMULATED county subsidy system
+ * (the county table is simulated too). Filling is a yellow action; submitting is red (you + family).
+ */
+export function prefillSubsidy(k: SubKey) {
+  const n = SUB_NAME[k]
+  openSheet({ tier: 'y', raised: null, zh: `帮您填好“${n[0]}”的申请表，先不提交`, en: `Fill in the ${n[1]} application for you, not submitted yet`, then: 'subprefill', sub: k })
+}
+export function submitSubsidy(k: SubKey) {
+  const n = SUB_NAME[k]
+  openSheet({ tier: 'r', raised: null, zh: `把“${n[0]}”的申请正式提交到（模拟）县补贴系统`, en: `Submit the ${n[1]} application to the (simulated) county subsidy system`, then: 'subsubmit', sub: k })
+}
+export const withdrawSubsidy = (k: SubKey) =>
   appStore.update((s) => {
-    s.app.sub = true
-    log(s, '记下：贴息材料已交到县农业农村局', 'Noted: subsidy papers handed in at the county bureau', ['您告诉我们的', 'You told us'])
+    s.subs[k] = 'none'
+    log(s, `撤回了“${SUB_NAME[k][0]}”的申请`, `Withdrew the ${SUB_NAME[k][1]} application`, BY_YOU)
+  })
+export const subDocsSent = (k: SubKey) =>
+  appStore.update((s) => {
+    s.subs[k] = 'submitted'
+    log(s, `补交了“${SUB_NAME[k][0]}”要的材料`, `Sent the extra document for the ${SUB_NAME[k][1]}`, BY_YOU)
   })
 
 /* ---------------- season ---------------- */
@@ -299,7 +328,17 @@ export const handToHuman = () => {
 }
 
 /* ---------------- judge scenario controls ---------------- */
-export function scenario(v: 'reset' | 'suspicious' | 'unlock' | 'approve' | 'docs' | 'payout' | 'lock') {
+export function scenario(v: 'reset' | 'suspicious' | 'unlock' | 'approve' | 'docs' | 'payout' | 'lock' | `subApprove:${SubKey}` | `subDocs:${SubKey}`) {
+  if (v.startsWith('sub')) {
+    const [kind, key] = v.split(':') as [string, SubKey]
+    appStore.update((s) => {
+      s.subs[key] = kind === 'subApprove' ? 'approved' : 'needdocs'
+      const n = SUB_NAME[key]
+      if (kind === 'subApprove') log(s, `县里批准了“${n[0]}”`, `The county approved the ${n[1]}`, ['模拟县补贴系统', 'Simulated county system'])
+      else log(s, `县里要补一份“${n[0]}”的材料`, `The county asked for an extra document for the ${n[1]}`, ['模拟县补贴系统', 'Simulated county system'])
+    })
+    return
+  }
   if (v === 'reset') {
     appStore.replace(freshApp())
     uiStore.update((u) => {
